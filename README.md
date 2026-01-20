@@ -10,14 +10,22 @@ Make text sayable for TTS engines (Chatterbox Turbo friendly).
 
 ## Install (uv)
 
+From GitHub:
+
 ```bash
-uv tool install sayable
+uv tool install git+ssh://git@github.com/CashWilliams/sayable.git
 ```
 
-Or:
+HTTPS:
 
 ```bash
-uv pip install sayable
+uv tool install git+https://github.com/CashWilliams/sayable.git
+```
+
+Or in a local clone:
+
+```bash
+uv pip install -e .
 ```
 
 ## Quick start
