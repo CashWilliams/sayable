@@ -1,0 +1,23 @@
+text,label
+"haha that was funny",laugh
+"lol",laugh
+"this is hilarious",laugh
+"heh",chuckle
+"that made me chuckle",chuckle
+"hmm okay",chuckle
+"ugh",groan
+"this is annoying",groan
+"oh no",gasp
+"wow",gasp
+"ahem",clear_throat
+"clearing my throat",clear_throat
+"shh",shush
+"shush",shush
+"sorry about that",sigh
+"i guess",sigh
+"cough",cough
+"coughing",cough
+"sniff",sniff
+"sniffing",sniff
+"thanks",none
+"let us continue",none
