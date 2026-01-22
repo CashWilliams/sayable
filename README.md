@@ -25,7 +25,8 @@ uv tool install git+https://github.com/CashWilliams/sayable.git
 Or in a local clone:
 
 ```bash
-uv pip install -e .
+uv tool install -e .
+uv tool update-shell
 ```
 
 ## Quick start
