@@ -68,6 +68,11 @@ sayable --config config.json
 Supported tags:
 `[clear throat]`, `[sigh]`, `[shush]`, `[cough]`, `[groan]`, `[sniff]`, `[gasp]`.
 
+Supported utterance labels:
+`clear_throat`, `sigh`, `shush`, `cough`, `groan`, `sniff`, `gasp`, `none`.
+
+`none` means "do not insert a tag".
+
 The default tagger is intentionally conservative to avoid over-tagging.
 
 ## Train your own tagger
