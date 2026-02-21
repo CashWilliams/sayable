@@ -9,8 +9,6 @@ SUPPORTED_TAGS = [
     "[groan]",
     "[sniff]",
     "[gasp]",
-    "[chuckle]",
-    "[laugh]",
 ]
 
 LABEL_TO_TAG = {
@@ -21,8 +19,6 @@ LABEL_TO_TAG = {
     "groan": "[groan]",
     "sniff": "[sniff]",
     "gasp": "[gasp]",
-    "chuckle": "[chuckle]",
-    "laugh": "[laugh]",
     "none": "",
 }
 

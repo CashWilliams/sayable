@@ -3,13 +3,6 @@ import math
 import re
 
 DEFAULT_TRAINING = [
-    ("haha that was funny", "laugh"),
-    ("lol", "laugh"),
-    ("lmao", "laugh"),
-    ("this is hilarious", "laugh"),
-    ("heh", "chuckle"),
-    ("that made me chuckle", "chuckle"),
-    ("hmm well okay", "chuckle"),
     ("ugh", "groan"),
     ("this is annoying", "groan"),
     ("oh no", "gasp"),

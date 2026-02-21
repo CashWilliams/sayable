@@ -6,7 +6,7 @@ Make text sayable for TTS engines (Chatterbox Turbo friendly).
 - Deterministic text normalization: bullets to sentences, parentheses expansion, emoji stripping, abbreviations.
 - Time/number normalization: spell out times, ordinals, decimals, and numeric ranges.
 - Tech-aware cleanup: URLs, emails, file paths, versions, IP/MAC/hex, units, and acronyms.
-- Lightweight statistical tagger: Naive Bayes inserts supported tags like `[laugh]` or `[sigh]`.
+- Lightweight statistical tagger: Naive Bayes inserts supported tags like `[gasp]` or `[sigh]`.
 
 ## Install (uv)
 
@@ -66,7 +66,7 @@ sayable --config config.json
 
 ## Tagging
 Supported tags:
-`[clear throat]`, `[sigh]`, `[shush]`, `[cough]`, `[groan]`, `[sniff]`, `[gasp]`, `[chuckle]`, `[laugh]`.
+`[clear throat]`, `[sigh]`, `[shush]`, `[cough]`, `[groan]`, `[sniff]`, `[gasp]`.
 
 The default tagger is intentionally conservative to avoid over-tagging.
 
