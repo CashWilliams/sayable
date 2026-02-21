@@ -116,6 +116,7 @@ DEFAULT_CONFIG = {
     },
     "tech_pronunciations": {
         "AI": "a i",
+        "A.I.": "a i",
         "ML": "m l",
         "DL": "d l",
         "LLM": "l l m",

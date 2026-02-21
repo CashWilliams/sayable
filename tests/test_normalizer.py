@@ -19,6 +19,11 @@ def test_acronyms_and_caps(cfg):
     assert normalize_text(text, cfg) == "g p u much fast"
 
 
+def test_ai_and_dotted_ai(cfg):
+    text = "AI and A.I. are related"
+    assert normalize_text(text, cfg) == "a i and a i are related"
+
+
 def test_minutes_and_minimum(cfg):
     text = "This takes a few min. It is at the min. It takes 2-min."
     assert (
