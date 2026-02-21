@@ -1,17 +1,34 @@
 text,label
 "ugh",groan
 "this is annoying",groan
+"this is frustrating",groan
+"this is bad",groan
+"this is terrible",groan
 "oh no",gasp
 "wow",gasp
+"gosh",gasp
+"i did not expect this",gasp
+"i can't believe this",gasp
+"cool ai news",gasp
+"what a surprise",gasp
+"something interesting happened",gasp
+"this is something interesting",gasp
 "ahem",clear_throat
 "clearing my throat",clear_throat
 "shh",shush
 "shush",shush
 "sorry about that",sigh
 "i guess",sigh
+"sorry to say this",sigh
+"sorry to say this but the command failed",sigh
+"unfortunately that failed",sigh
 "cough",cough
 "coughing",cough
 "sniff",sniff
 "sniffing",sniff
+"okay",none
 "thanks",none
 "let us continue",none
+"this is some info",none
+"this is an update",none
+"this is a note",none
