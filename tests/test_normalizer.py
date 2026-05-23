@@ -1,7 +1,9 @@
 import pytest
 
 from sayable.config import load_config
+from sayable.chunker import chunk_text
 from sayable.normalizer import normalize_text
+from sayable.output import format_output
 
 
 @pytest.fixture()
@@ -46,3 +48,55 @@ def test_email_and_url(cfg):
         normalize_text(text, cfg)
         == "Email test dot user plus a i at example dot com and visit example dot com"
     )
+
+
+def test_unknown_tags_are_preserved_by_default(cfg):
+    assert normalize_text("hello [laugh] there [sigh]", cfg) == "hello [laugh] there [sigh]"
+
+
+def test_unknown_tags_can_be_stripped(cfg):
+    cfg["unknown_tag_policy"] = "strip"
+    assert normalize_text("hello [laugh] there [sigh]", cfg) == "hello there [sigh]"
+
+
+def test_dates_currency_fractions_percent_and_phone(cfg):
+    text = "On 2026-05-23 pay $12.50, use 1/2 now, hit 42%, call 555-123-4567."
+    assert (
+        normalize_text(text, cfg)
+        == "On May twenty third twenty twenty six pay twelve dollars and fifty cents, use one half now, hit forty two percent, call five five five, one two three, four five six seven."
+    )
+
+
+def test_slash_date_and_year_range(cfg):
+    text = "From 1999-2001, ship on 05/23/2026."
+    assert (
+        normalize_text(text, cfg)
+        == "From nineteen ninety nine to two thousand one, ship on May twenty third twenty twenty six."
+    )
+
+
+def test_markdown_cleanup(cfg):
+    text = "# Title\nSee [docs](https://example.com).\nRun `uv run pytest`.\n```py\nprint('x')\n```"
+    assert (
+        normalize_text(text, cfg)
+        == "Title See docs. Run uv run pytest. code block omitted"
+    )
+
+
+def test_markdown_speak_link_includes_url(cfg):
+    cfg["markdown_policy"] = "speak"
+    assert normalize_text("[docs](https://example.com)", cfg) == "docs, example dot com"
+
+
+def test_chunk_text(cfg):
+    cfg["chunk_size"] = 18
+    assert chunk_text("One sentence. Two sentence. Three sentence.", cfg) == [
+        "One sentence.",
+        "Two sentence.",
+        "Three sentence.",
+    ]
+
+
+def test_ssml_output(cfg):
+    cfg["output_mode"] = "ssml"
+    assert format_output("A < B & C", cfg) == "<speak>A &lt; B &amp; C</speak>"

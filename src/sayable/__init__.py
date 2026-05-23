@@ -1,1 +1,1 @@
-__all__ = ["config", "normalizer", "classifier", "tagger"]
+__all__ = ["chunker", "config", "normalizer", "classifier", "output", "tagger"]

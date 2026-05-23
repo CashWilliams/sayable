@@ -2,8 +2,10 @@ import argparse
 import sys
 
 from .classifier import NaiveBayesTagger
+from .chunker import chunk_text
 from .config import load_config
 from .normalizer import normalize_text
+from .output import format_output
 from .tagger import insert_tags
 
 
@@ -38,6 +40,9 @@ def build_parser():
     parser.add_argument("--time-style", choices=["12h", "24h"], help="Override time style.")
     parser.add_argument("--time-zero", choices=["oclock", "hundred"], help="Override time zero policy.")
     parser.add_argument("--no-am-pm", action="store_true", help="Do not include am/pm in 12h style.")
+    parser.add_argument("--chunk-size", type=int, help="Split output into chunks no longer than N characters when possible.")
+    parser.add_argument("--chunk-separator", help="Text inserted between chunks.")
+    parser.add_argument("--output-mode", choices=["plain", "chatterbox", "ssml"], help="Output format.")
     return parser
 
 
@@ -55,6 +60,12 @@ def main():
         cfg["time_zero"] = args.time_zero
     if args.no_am_pm:
         cfg["time_include_am_pm"] = False
+    if args.chunk_size is not None:
+        cfg["chunk_size"] = args.chunk_size
+    if args.chunk_separator is not None:
+        cfg["chunk_separator"] = args.chunk_separator
+    if args.output_mode:
+        cfg["output_mode"] = args.output_mode
 
     if args.model:
         classifier = NaiveBayesTagger.from_json(args.model)
@@ -64,6 +75,9 @@ def main():
     text = read_input(args.input)
     text = normalize_text(text, cfg)
     text = insert_tags(text, classifier, cfg)
+    chunks = chunk_text(text, cfg)
+    text = cfg.get("chunk_separator", "\n\n").join(chunks)
+    text = format_output(text, cfg)
     write_output(args.output, text)
 
 

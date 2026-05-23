@@ -34,3 +34,13 @@ def test_tagger_avoids_groan_for_interesting_sentence():
     out = run_pipeline("Wow! This is something interesting.", cfg)
     assert "[groan]" not in out
     assert "[gasp]" in out
+
+
+def test_rules_strategy_and_tag_limit():
+    cfg = load_config(None)
+    cfg["tagger_strategy"] = "rules"
+    cfg["tag_max_per_chunk"] = 1
+    out = run_pipeline("Ahem. Shh. Ugh.", cfg)
+    assert out.count("[clear throat]") == 1
+    assert "[shush]" not in out
+    assert "[groan]" not in out

@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from calendar import month_name
 from urllib.parse import parse_qsl, unquote, urlparse
 
 
@@ -36,6 +37,53 @@ QUANT_MIN_RE = re.compile(
 )
 MINIMUM_RE = re.compile(r"\bthe min\b", re.IGNORECASE)
 BIG_O_RE = re.compile(r"\bO\(([^)]+)\)", re.IGNORECASE)
+ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
+SLASH_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b")
+MONTH_DATE_RE = re.compile(
+    r"\b("
+    r"Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+    r"Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|"
+    r"Nov(?:ember)?|Dec(?:ember)?"
+    r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,\s*(\d{2,4}))?\b",
+    re.IGNORECASE,
+)
+YEAR_RANGE_RE = re.compile(r"\b(1[5-9]\d{2}|20\d{2}|21\d{2})-(1[5-9]\d{2}|20\d{2}|21\d{2})\b")
+CURRENCY_RE = re.compile(r"(?<!\w)([$€£])\s?(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{1,2}))?\b")
+PERCENT_RE = re.compile(r"\b(\d+(?:\.\d+)?)%")
+FRACTION_RE = re.compile(r"\b(\d+)/(\d+)\b")
+PHONE_RE = re.compile(r"(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}(?!\d)")
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
+INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+FENCED_CODE_RE = re.compile(r"```[^\n`]*\n.*?```", re.DOTALL)
+HTML_TAG_RE = re.compile(r"</?[A-Za-z][^>]*>")
+TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
+
+MONTHS = {
+    "jan": 1,
+    "january": 1,
+    "feb": 2,
+    "february": 2,
+    "mar": 3,
+    "march": 3,
+    "apr": 4,
+    "april": 4,
+    "may": 5,
+    "jun": 6,
+    "june": 6,
+    "jul": 7,
+    "july": 7,
+    "aug": 8,
+    "august": 8,
+    "sep": 9,
+    "sept": 9,
+    "september": 9,
+    "oct": 10,
+    "october": 10,
+    "nov": 11,
+    "november": 11,
+    "dec": 12,
+    "december": 12,
+}
 
 EMOJI_RANGES = [
     (0x1F300, 0x1F5FF),
@@ -186,12 +234,173 @@ def ordinal_to_words(n):
     return base + "th"
 
 
+def year_to_words(year, style="auto"):
+    year = int(year)
+    if style == "digits":
+        return digits_to_words(str(year))
+    if style == "cardinal":
+        return number_to_words(year)
+    if 2000 <= year <= 2009:
+        return "two thousand" if year == 2000 else f"two thousand {number_to_words(year % 100)}"
+    if 2010 <= year <= 2099:
+        return f"twenty {number_to_words(year % 100)}"
+    if 1900 <= year <= 1999:
+        rest = year % 100
+        return "nineteen hundred" if rest == 0 else f"nineteen {number_to_words(rest)}"
+    if 1800 <= year <= 1899:
+        rest = year % 100
+        return "eighteen hundred" if rest == 0 else f"eighteen {number_to_words(rest)}"
+    return number_to_words(year)
+
+
+def month_to_words(month):
+    if 1 <= month <= 12:
+        return month_name[month]
+    return number_to_words(month)
+
+
+def date_to_words(year, month, day, config):
+    year_words = year_to_words(year, config.get("year_style", "auto"))
+    return f"{month_to_words(month)} {ordinal_to_words(day)} {year_words}"
+
+
 def replace_ordinals(text):
     def repl(match):
         num = int(match.group(1))
         return ordinal_to_words(num)
 
     return ORDINAL_RE.sub(repl, text)
+
+
+def replace_dates(text, config):
+    def repl_iso(match):
+        year = int(match.group(1))
+        month = int(match.group(2))
+        day = int(match.group(3))
+        return date_to_words(year, month, day, config)
+
+    def repl_slash(match):
+        first = int(match.group(1))
+        second = int(match.group(2))
+        year = int(match.group(3))
+        if year < 100:
+            year += 2000 if year < 70 else 1900
+        date_order = config.get("date_order", "mdy")
+        if date_order == "dmy":
+            day, month = first, second
+        elif date_order == "ymd":
+            year, month, day = first, second, year
+        else:
+            month, day = first, second
+        return date_to_words(year, month, day, config)
+
+    def repl_month(match):
+        month_key = match.group(1).lower().rstrip(".")
+        month = MONTHS.get(month_key, 0)
+        day = int(match.group(2))
+        year = match.group(3)
+        if year:
+            return date_to_words(int(year), month, day, config)
+        return f"{month_to_words(month)} {ordinal_to_words(day)}"
+
+    text = ISO_DATE_RE.sub(repl_iso, text)
+    text = SLASH_DATE_RE.sub(repl_slash, text)
+    return MONTH_DATE_RE.sub(repl_month, text)
+
+
+def replace_year_ranges(text, config):
+    def repl(match):
+        start = year_to_words(match.group(1), config.get("year_style", "auto"))
+        end = year_to_words(match.group(2), config.get("year_style", "auto"))
+        return f"{start} to {end}"
+
+    return YEAR_RANGE_RE.sub(repl, text)
+
+
+def replace_currencies(text, config):
+    names = {
+        "$": ("dollar", "cent"),
+        "€": ("euro", "cent"),
+        "£": ("pound", "pence"),
+    }
+
+    def plural(word, amount):
+        return word if amount == 1 else word + "s"
+
+    def repl(match):
+        symbol = match.group(1)
+        whole = int(match.group(2).replace(",", ""))
+        cents = match.group(3)
+        major, minor = names.get(symbol, ("unit", "cent"))
+        words = f"{number_to_words(whole)} {plural(major, whole)}"
+        if cents is not None:
+            cent_value = int(cents.ljust(2, "0")[:2])
+            if cent_value:
+                words += f" and {number_to_words(cent_value)} {plural(minor, cent_value)}"
+        return words
+
+    return CURRENCY_RE.sub(repl, text)
+
+
+def replace_percents(text):
+    def repl(match):
+        value = match.group(1)
+        if "." in value:
+            words = decimal_to_words(value)
+        else:
+            words = number_to_words(int(value))
+        return f"{words} percent"
+
+    return PERCENT_RE.sub(repl, text)
+
+
+def fraction_to_words(numerator, denominator):
+    special = {
+        2: "half",
+        3: "third",
+        4: "quarter",
+        5: "fifth",
+        6: "sixth",
+        7: "seventh",
+        8: "eighth",
+        9: "ninth",
+        10: "tenth",
+        12: "twelfth",
+    }
+    denom = special.get(denominator, ordinal_to_words(denominator))
+    if numerator != 1:
+        if denom == "half":
+            denom = "halves"
+        elif denom == "quarter":
+            denom = "quarters"
+        elif not denom.endswith("s"):
+            denom += "s"
+    return f"{number_to_words(numerator)} {denom}"
+
+
+def replace_fractions(text):
+    def repl(match):
+        denominator = int(match.group(2))
+        if denominator == 0:
+            return match.group(0)
+        return fraction_to_words(int(match.group(1)), denominator)
+
+    return FRACTION_RE.sub(repl, text)
+
+
+def replace_phones(text, config):
+    def repl(match):
+        digits = re.sub(r"\D", "", match.group(0))
+        if len(digits) == 11 and digits.startswith("1"):
+            digits = digits[1:]
+        if len(digits) != 10:
+            return match.group(0)
+        if config.get("phone_digit_style", "grouped") == "single":
+            return digits_to_words(digits)
+        groups = [digits[:3], digits[3:6], digits[6:]]
+        return ", ".join(digits_to_words(group) for group in groups)
+
+    return PHONE_RE.sub(repl, text)
 
 
 def replace_decimals(text):
@@ -611,6 +820,47 @@ def normalize_bullets(text):
     return " ".join(out)
 
 
+def normalize_markdown(text, config):
+    policy = config.get("markdown_policy", "plain")
+    if policy == "preserve":
+        return text
+
+    code_policy = config.get("code_block_policy", "summarize")
+
+    def repl_code_block(match):
+        if code_policy == "strip":
+            return " "
+        if code_policy == "speak":
+            body = match.group(0).strip("`").strip()
+            return f" code block {body} "
+        return " code block omitted "
+
+    def repl_link(match):
+        label = match.group(1).strip()
+        url = match.group(2).strip()
+        if policy == "speak":
+            return f"{label}, {url}"
+        return label
+
+    text = FENCED_CODE_RE.sub(repl_code_block, text)
+    text = MARKDOWN_LINK_RE.sub(repl_link, text)
+    text = INLINE_CODE_RE.sub(r"\1", text)
+    text = HTML_TAG_RE.sub(" ", text)
+
+    lines = []
+    for line in text.split("\n"):
+        if TABLE_SEPARATOR_RE.match(line):
+            continue
+        line = re.sub(r"^\s{0,3}#{1,6}\s+", "", line)
+        line = re.sub(r"^\s{0,3}>\s?", "", line)
+        line = line.strip()
+        if line.startswith("#!"):
+            continue
+        if line:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def replace_abbreviations(text, abbreviations):
     for k, v in abbreviations.items():
         pattern = r"(?<!\\w)" + re.escape(k) + r"(?!\\w)"
@@ -646,19 +896,33 @@ def convert_explicit_sfx(text, allowed_tags):
     return SFX_RE.sub(repl, text)
 
 
-def protect_tags(text, allowed_tags):
-    allowed = set(allowed_tags)
+def index_to_letters(index):
+    letters = []
+    while True:
+        letters.append(chr(ord("a") + index % 26))
+        index = index // 26 - 1
+        if index < 0:
+            break
+    return "".join(reversed(letters))
+
+
+def protect_tags(text, allowed_tags, config):
+    allowed = {tag.lower(): tag for tag in allowed_tags}
+    policy = config.get("unknown_tag_policy", "preserve")
     placeholders = {}
 
     def repl(match):
         tag = match.group(0)
-        if tag in allowed:
-            key = f"__TAG{len(placeholders)}__"
-            placeholders[key] = tag
+        tag_key = tag.lower()
+        if tag_key in allowed or policy == "preserve":
+            key = f"sayabletag{index_to_letters(len(placeholders))}"
+            placeholders[key] = allowed.get(tag_key, tag)
             return key
+        if policy == "escape":
+            return tag.replace("[", " left bracket ").replace("]", " right bracket ")
         return ""
 
-    text = re.sub(r"\[[a-z ]+\]", repl, text, flags=re.IGNORECASE)
+    text = re.sub(r"\[[a-z][a-z ]{0,48}\]", repl, text, flags=re.IGNORECASE)
     return text, placeholders
 
 
@@ -668,18 +932,49 @@ def restore_tags(text, placeholders):
     return text
 
 
-def normalize_text(text, config):
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = convert_explicit_sfx(text, config.get("allowed_tags", []))
-    text = normalize_bullets(text)
+def apply_hooks(text, hooks, stage, config):
+    if not hooks:
+        return text
+    funcs = hooks.get(stage, []) if isinstance(hooks, dict) else hooks
+    if callable(funcs):
+        funcs = [funcs]
+    for func in funcs:
+        text = func(text, config)
+    return text
 
-    text, placeholders = protect_tags(text, config.get("allowed_tags", []))
+
+class Pipeline:
+    def __init__(self, config, before=None, after=None):
+        self.config = config
+        self.before = before
+        self.after = after
+
+    def normalize(self, text):
+        return normalize_text(text, self.config, before=self.before, after=self.after)
+
+
+def normalize_text(text, config, before=None, after=None):
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = apply_hooks(text, before, "line_endings", config)
+
+    text = normalize_markdown(text, config)
+    text = apply_hooks(text, after, "markdown", config)
+
+    text = convert_explicit_sfx(text, config.get("allowed_tags", []))
+    text = apply_hooks(text, after, "explicit_sfx", config)
+
+    text = normalize_bullets(text)
+    text = apply_hooks(text, after, "bullets", config)
+
+    text, placeholders = protect_tags(text, config.get("allowed_tags", []), config)
+    text = apply_hooks(text, after, "tag_protection", config)
 
     text = replace_urls(text, config)
     text = replace_emails(text, config)
     text = replace_paths(text, config)
     text = replace_handles_hashtags(text)
     text = replace_big_o(text)
+    text = apply_hooks(text, after, "social", config)
 
     paren_policy = config.get("paren_policy", "strip")
     text = handle_parentheses(text, paren_policy)
@@ -691,14 +986,21 @@ def normalize_text(text, config):
     text = replace_tech_terms(text, config)
     text = replace_ampersands(text)
     text = replace_pluses(text)
-    text = replace_slashes(text)
+    text = replace_phones(text, config)
+    text = replace_dates(text, config)
+    text = replace_year_ranges(text, config)
     text = replace_ip_addresses(text, config)
+    text = replace_currencies(text, config)
     text = replace_versions(text)
     text = replace_mac_addresses(text)
     text = replace_hex_numbers(text)
+    text = replace_percents(text)
+    text = replace_fractions(text)
+    text = replace_slashes(text)
     text = replace_hyphen_units(text)
     text = replace_minute_quantifiers(text)
     text = replace_units(text, config)
+    text = apply_hooks(text, after, "dates_numbers_units", config)
 
     text = replace_times(text, config)
     text = replace_ordinals(text)
@@ -710,7 +1012,9 @@ def normalize_text(text, config):
     if config.get("strip_emoji", True):
         text = strip_emoji(text)
         text = "".join(ch for ch in text if unicodedata.category(ch) != "Cs")
+    text = apply_hooks(text, after, "emoji", config)
 
     text = normalize_whitespace(text)
     text = restore_tags(text, placeholders)
+    text = apply_hooks(text, after, "whitespace", config)
     return text
