@@ -55,6 +55,11 @@ PHONE_RE = re.compile(r"(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
 INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
 FENCED_CODE_RE = re.compile(r"```[^\n`]*\n.*?```", re.DOTALL)
+STACK_TRACE_RE = re.compile(
+    r"(?:Traceback \(most recent call last\):\n(?:\s+File .+\n)+(?:[A-Za-z_][\w.]*Error|Exception): .+|"
+    r"(?:\s+at [^\n]+\n){2,})",
+    re.MULTILINE,
+)
 HTML_TAG_RE = re.compile(r"</?[A-Za-z][^>]*>")
 TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
 
@@ -662,6 +667,9 @@ def url_to_words(url, config):
 
 
 def replace_urls(text, config):
+    if config.get("url_policy", "domain") == "preserve":
+        return text
+
     def repl(match):
         url = match.group(0)
         core, trailing = split_trailing_punct(url)
@@ -712,7 +720,13 @@ def path_to_words(path, windows=False):
 
 
 def replace_paths(text, config):
-    if not config.get("path_policy", "speak"):
+    path_policy = config.get("path_policy", "speak")
+    if path_policy == "preserve":
+        return text
+    if path_policy == "strip":
+        text = WIN_PATH_RE.sub(" ", text)
+        return UNIX_PATH_RE.sub(" ", text)
+    if not path_policy:
         return text
 
     def repl_win(match):
@@ -831,9 +845,19 @@ def normalize_markdown(text, config):
         if code_policy == "strip":
             return " "
         if code_policy == "speak":
-            body = match.group(0).strip("`").strip()
+            raw = match.group(0)
+            lines = raw.splitlines()
+            body_lines = lines[1:-1] if len(lines) >= 2 else []
+            body = "\n".join(body_lines).strip()
             return f" code block {body} "
         return " code block omitted "
+
+    def repl_stack_trace(match):
+        if code_policy == "strip":
+            return " "
+        if code_policy == "speak":
+            return f" stack trace {match.group(0)} "
+        return " stack trace omitted "
 
     def repl_link(match):
         label = match.group(1).strip()
@@ -843,6 +867,7 @@ def normalize_markdown(text, config):
         return label
 
     text = FENCED_CODE_RE.sub(repl_code_block, text)
+    text = STACK_TRACE_RE.sub(repl_stack_trace, text)
     text = MARKDOWN_LINK_RE.sub(repl_link, text)
     text = INLINE_CODE_RE.sub(r"\1", text)
     text = HTML_TAG_RE.sub(" ", text)
@@ -856,6 +881,9 @@ def normalize_markdown(text, config):
         line = line.strip()
         if line.startswith("#!"):
             continue
+        if "|" in line:
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            line = ", ".join(cell for cell in cells if cell)
         if line:
             lines.append(line)
     return "\n".join(lines)
@@ -932,6 +960,40 @@ def restore_tags(text, placeholders):
     return text
 
 
+def protect_configured_spans(text, config, offset=0):
+    patterns = []
+    if config.get("url_policy") == "preserve":
+        patterns.extend([URL_RE, EMAIL_RE])
+    if config.get("path_policy") == "preserve":
+        patterns.extend([WIN_PATH_RE, UNIX_PATH_RE])
+    if not patterns:
+        return text, {}
+
+    spans = []
+    for pattern in patterns:
+        spans.extend(match.span() for match in pattern.finditer(text))
+    spans.sort()
+
+    merged = []
+    for start, end in spans:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+
+    placeholders = {}
+    out = []
+    pos = 0
+    for start, end in merged:
+        out.append(text[pos:start])
+        key = f"sayablespan{index_to_letters(offset + len(placeholders))}"
+        placeholders[key] = text[start:end]
+        out.append(key)
+        pos = end
+    out.append(text[pos:])
+    return "".join(out), placeholders
+
+
 def apply_hooks(text, hooks, stage, config):
     if not hooks:
         return text
@@ -967,6 +1029,8 @@ def normalize_text(text, config, before=None, after=None):
     text = apply_hooks(text, after, "bullets", config)
 
     text, placeholders = protect_tags(text, config.get("allowed_tags", []), config)
+    text, span_placeholders = protect_configured_spans(text, config, len(placeholders))
+    placeholders.update(span_placeholders)
     text = apply_hooks(text, after, "tag_protection", config)
 
     text = replace_urls(text, config)

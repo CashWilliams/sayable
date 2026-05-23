@@ -64,6 +64,16 @@ Run with config:
 sayable --config config.json
 ```
 
+Configuration is validated after defaults and JSON config are merged, and again after CLI overrides are applied. Invalid enum values, bad booleans, invalid numeric bounds, and malformed list or dictionary fields raise `sayable.config.ConfigError` in the Python API and exit with code `1` in the CLI.
+
+Production-relevant policies:
+
+- `unknown_tag_policy`: `preserve` keeps unknown bracket tags such as `[laugh]` intact, `strip` removes them, and `escape` verbalizes brackets.
+- `markdown_policy`: `plain` removes common markdown syntax, `speak` includes useful link targets, and `preserve` leaves source-like markdown/code available for downstream hooks.
+- `code_block_policy`: `summarize` emits short code or stack-trace summaries, `speak` includes code text without fences, and `strip` removes code-like blocks.
+- `chunk_size`: `0` disables chunking. Positive sizes prefer paragraph and sentence boundaries, but protected spans such as tags, URLs, emails, paths, versions, IPs, decimals, phone numbers, and currency values are not split; a single oversized protected span may exceed the target.
+- `output_mode`: `plain` and `chatterbox` return normalized text, while `ssml` emits a `<speak>` document. In SSML, `ssml_tag_policy` defaults to removing Chatterbox-style tags; `speak` verbalizes them and `preserve` escapes them as text. `ssml_break_markers` maps markers such as `[pause]` to SSML `<break>` elements.
+
 ## Tagging
 Supported tags:
 `[clear throat]`, `[sigh]`, `[shush]`, `[cough]`, `[groan]`, `[sniff]`, `[gasp]`.
@@ -73,13 +83,26 @@ Supported utterance labels:
 
 `none` means "do not insert a tag".
 
-The default tagger is intentionally conservative to avoid over-tagging.
+The default tagger is intentionally conservative to avoid over-tagging. The default minimum confidence is chosen to avoid common false positives in neutral command and documentation text, and `tag_max_per_chunk` limits tags across rule and model strategies. Tags listed in `disabled_tags` are never emitted even if model labels map to them.
+
+## CLI exit codes
+
+- `0`: success
+- `1`: bad arguments or invalid config
+- `2`: input read failure
+- `3`: output write failure
+- `4`: model load or malformed model failure
+- `99`: unexpected failure
+
+Successful transformed text is written to stdout. Diagnostics are written to stderr.
 
 ## Train your own tagger
 
 ```bash
-python scripts/train_tag_model.py --data data/tag_train.csv --out models/tag_model.json
+python scripts/train_tag_model.py --data data/tag_train.csv --out models/tag_model.json --seed 7
 ```
+
+The training command writes model metadata including schema version, row count, label counts, smoothing value, source data hash, seed, timestamp, and validation metrics. Re-run the documented command against checked-in training data to regenerate the bundled model with equivalent inference behavior.
 
 Then:
 
@@ -105,3 +128,9 @@ uv run pytest
 ```bash
 make test
 ```
+
+CI runs the unit suite on supported Python versions, strict OpenSpec validation, package build, wheel install, and CLI smoke checks.
+
+## Non-goals
+
+Sayable is not a TTS server, audio pipeline, universal text normalizer, vendor-specific SSML mapper, or heavyweight NLP framework. It stays dependency-light and focused on preparing text before it reaches a TTS engine.

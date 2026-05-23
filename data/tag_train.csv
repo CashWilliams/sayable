@@ -32,3 +32,13 @@ text,label
 "this is some info",none
 "this is an update",none
 "this is a note",none
+"uv run pytest",none
+"git status",none
+"curl https://example.com",none
+"read the API documentation",none
+"install dependencies and run tests",none
+"the command failed with exit code 1",none
+"open README.md for usage",none
+"set output_mode to ssml",none
+"call normalize_text with config",none
+"package metadata includes project urls",none

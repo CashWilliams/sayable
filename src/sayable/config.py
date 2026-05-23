@@ -22,6 +22,10 @@ LABEL_TO_TAG = {
     "none": "",
 }
 
+
+class ConfigError(ValueError):
+    """Raised when Sayable configuration is invalid."""
+
 DEFAULT_CONFIG = {
     "time_style": "12h",
     "time_zero": "oclock",
@@ -50,6 +54,8 @@ DEFAULT_CONFIG = {
     "markdown_policy": "plain",
     "code_block_policy": "summarize",
     "output_mode": "plain",
+    "ssml_tag_policy": "remove",
+    "ssml_break_markers": {"[pause]": {"time": "500ms"}},
     "chunk_size": 0,
     "chunk_separator": "\n\n",
     "auto_spell_acronyms": True,
@@ -251,11 +257,142 @@ DEFAULT_CONFIG = {
 }
 
 
+ENUM_FIELDS = {
+    "time_style": {"12h", "24h"},
+    "time_zero": {"oclock", "hundred"},
+    "minute_leading_zero": {"oh", "zero"},
+    "paren_policy": {"strip", "unwrap", "expand", "preserve"},
+    "tag_position": {"prefix", "suffix"},
+    "unknown_tag_policy": {"preserve", "strip", "escape"},
+    "tagger_strategy": {"rules", "nb", "rules_nb"},
+    "url_policy": {"domain", "full", "preserve"},
+    "path_policy": {"speak", "preserve", "strip"},
+    "ip_digit_style": {"single", "grouped"},
+    "date_order": {"mdy", "dmy", "ymd"},
+    "year_style": {"auto", "digits", "cardinal"},
+    "currency_style": {"natural"},
+    "phone_digit_style": {"grouped", "single"},
+    "markdown_policy": {"plain", "speak", "preserve"},
+    "code_block_policy": {"summarize", "speak", "strip"},
+    "output_mode": {"plain", "chatterbox", "ssml"},
+    "ssml_tag_policy": {"remove", "speak", "preserve"},
+}
+
+BOOL_FIELDS = {
+    "time_include_am_pm",
+    "strip_emoji",
+    "tagger_enabled",
+    "url_include_scheme",
+    "url_read_query",
+    "url_read_fragment",
+    "url_include_port",
+    "auto_spell_acronyms",
+}
+
+LIST_FIELDS = {"allowed_tags", "disabled_tags", "acronym_stoplist", "acronym_force"}
+DICT_FIELDS = {
+    "label_to_tag",
+    "abbreviations",
+    "tech_pronunciations",
+    "domain_pronunciations",
+    "unit_pronunciations",
+    "ssml_break_markers",
+}
+
+
+def _fail(field, message):
+    raise ConfigError(f"Invalid config field '{field}': {message}")
+
+
+def _check_string_list(config, field):
+    value = config.get(field)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        _fail(field, "expected a list of strings")
+
+
+def _check_string_dict(config, field):
+    value = config.get(field)
+    if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+        _fail(field, "expected a dictionary of string keys and string values")
+
+
+def _check_break_markers(config):
+    markers = config.get("ssml_break_markers")
+    if not isinstance(markers, dict):
+        _fail("ssml_break_markers", "expected a dictionary")
+    for marker, setting in markers.items():
+        if not isinstance(marker, str):
+            _fail("ssml_break_markers", "marker keys must be strings")
+        if isinstance(setting, str):
+            continue
+        if not isinstance(setting, dict):
+            _fail("ssml_break_markers", "marker values must be strings or dictionaries")
+        if not any(key in setting for key in ("time", "strength")):
+            _fail("ssml_break_markers", "marker dictionaries must include time or strength")
+        for key, value in setting.items():
+            if key not in {"time", "strength"}:
+                _fail("ssml_break_markers", f"unsupported marker option {key!r}")
+            if not isinstance(value, str):
+                _fail("ssml_break_markers", "marker options must be strings")
+
+
+def validate_config(config):
+    if not isinstance(config, dict):
+        raise ConfigError("Config must be a dictionary")
+
+    for field, accepted in ENUM_FIELDS.items():
+        value = config.get(field)
+        if value not in accepted:
+            accepted_values = ", ".join(sorted(accepted))
+            _fail(field, f"expected one of: {accepted_values}")
+
+    for field in BOOL_FIELDS:
+        if not isinstance(config.get(field), bool):
+            _fail(field, "expected a boolean")
+
+    for field in LIST_FIELDS:
+        _check_string_list(config, field)
+
+    for field in DICT_FIELDS - {"ssml_break_markers"}:
+        _check_string_dict(config, field)
+    _check_break_markers(config)
+
+    tag_min_confidence = config.get("tag_min_confidence")
+    if not isinstance(tag_min_confidence, (int, float)) or isinstance(tag_min_confidence, bool):
+        _fail("tag_min_confidence", "expected a number from 0 to 1")
+    if not 0 <= tag_min_confidence <= 1:
+        _fail("tag_min_confidence", "expected a number from 0 to 1")
+
+    for field in ("tag_max_per_chunk", "chunk_size"):
+        value = config.get(field)
+        if not isinstance(value, int) or isinstance(value, bool):
+            _fail(field, "expected a non-negative integer")
+        if value < 0:
+            _fail(field, "expected a non-negative integer")
+
+    chunk_separator = config.get("chunk_separator")
+    if not isinstance(chunk_separator, str):
+        _fail("chunk_separator", "expected a string")
+
+    allowed = set(config.get("allowed_tags", []))
+    for tag in config.get("disabled_tags", []):
+        if tag in allowed:
+            _fail("disabled_tags", f"{tag!r} cannot also be allowed")
+
+    for label, tag in config.get("label_to_tag", {}).items():
+        if label != "none" and tag and tag not in allowed:
+            _fail("label_to_tag", f"{label!r} maps to unsupported tag {tag!r}")
+
+    return config
+
+
 def load_config(path):
     if not path:
-        return deepcopy(DEFAULT_CONFIG)
+        return validate_config(deepcopy(DEFAULT_CONFIG))
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
+    if not isinstance(data, dict):
+        raise ConfigError("Config file must contain a JSON object")
     cfg = deepcopy(DEFAULT_CONFIG)
     cfg.update(data)
-    return cfg
+    return validate_config(cfg)

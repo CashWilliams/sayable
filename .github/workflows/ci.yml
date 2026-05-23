@@ -7,8 +7,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Run tests
-        run: make test
+        run: uv run --extra dev pytest
+      - name: Validate OpenSpec
+        run: |
+          npm install -g @fission-ai/openspec
+          openspec validate --specs --strict
+          openspec validate harden-production-readiness --strict
+      - name: Build package
+        run: uv build
+      - name: Install and smoke test package
+        run: |
+          uv venv smoke-venv
+          smoke-venv/bin/python -m pip install dist/*.whl
+          smoke-venv/bin/sayable --help

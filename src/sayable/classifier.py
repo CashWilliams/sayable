@@ -36,6 +36,12 @@ DEFAULT_TRAINING = [
     ("this is some info", "none"),
     ("this is an update", "none"),
     ("this is a note", "none"),
+    ("uv run pytest", "none"),
+    ("git status", "none"),
+    ("curl https example com", "none"),
+    ("read the api documentation", "none"),
+    ("install dependencies and run tests", "none"),
+    ("the command failed with exit code one", "none"),
 ]
 
 TOKEN_RE = re.compile(r"[a-z]+(?:'[a-z]+)?|\d+|[:;]-?[)D(]")
@@ -89,6 +95,8 @@ class NaiveBayesTagger:
     def from_json(cls, path):
         with open(path, "r", encoding="utf-8") as f:
             model = json.load(f)
+        if "model" in model and isinstance(model["model"], dict):
+            model = model["model"]
         return cls(model=model)
 
     def predict(self, text):

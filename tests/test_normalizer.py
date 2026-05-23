@@ -59,6 +59,24 @@ def test_unknown_tags_can_be_stripped(cfg):
     assert normalize_text("hello [laugh] there [sigh]", cfg) == "hello there [sigh]"
 
 
+def test_regression_developer_text_fixture(cfg):
+    cfg["url_policy"] = "preserve"
+    cfg["path_policy"] = "preserve"
+    text = "Run `uv run pytest` against /tmp/app on v1.2.3, then curl https://example.com."
+    out = normalize_text(text, cfg)
+    assert "/tmp/app" in out
+    assert "https://example.com." in out
+    assert "version one point two point three" in out
+
+
+def test_regression_ai_prose_fixture(cfg):
+    text = "- AI updates (brief)\n- Keep [sigh] exactly\nOK?"
+    out = normalize_text(text, cfg)
+    assert "a i updates, brief." in out
+    assert "[sigh]" in out
+    assert out.endswith("OK?")
+
+
 def test_dates_currency_fractions_percent_and_phone(cfg):
     text = "On 2026-05-23 pay $12.50, use 1/2 now, hit 42%, call 555-123-4567."
     assert (
@@ -83,6 +101,28 @@ def test_markdown_cleanup(cfg):
     )
 
 
+def test_fenced_code_speak_omits_language_marker(cfg):
+    cfg["code_block_policy"] = "speak"
+    text = "```bash\nuv run pytest\n```"
+    out = normalize_text(text, cfg)
+    assert out == "code block uv run pytest"
+    assert "bash" not in out
+
+
+def test_stack_trace_policy(cfg):
+    text = "Traceback (most recent call last):\n  File \"x.py\", line 1, in <module>\nValueError: bad"
+    assert normalize_text(text, cfg) == "stack trace omitted"
+    cfg["code_block_policy"] = "strip"
+    assert normalize_text(text, cfg) == ""
+
+
+def test_markdown_table_cleanup_and_preserve_mode(cfg):
+    table = "| Name | Value |\n| --- | --- |\n| API | v1.2.3 |"
+    assert normalize_text(table, cfg) == "Name, Value a p i, version one point two point three"
+    cfg["markdown_policy"] = "preserve"
+    assert normalize_text("`uv run pytest`", cfg) == "`uv run pytest`"
+
+
 def test_markdown_speak_link_includes_url(cfg):
     cfg["markdown_policy"] = "speak"
     assert normalize_text("[docs](https://example.com)", cfg) == "docs, example dot com"
@@ -97,6 +137,67 @@ def test_chunk_text(cfg):
     ]
 
 
+def test_chunk_text_prefers_paragraph_boundaries(cfg):
+    cfg["chunk_size"] = 80
+    assert chunk_text("First paragraph.\n\nSecond paragraph.", cfg) == [
+        "First paragraph.",
+        "Second paragraph.",
+    ]
+
+
+def test_chunk_text_preserves_protected_spans(cfg):
+    cfg["chunk_size"] = 16
+    text = (
+        "Use [clear throat] and https://example.com/path plus "
+        "test.user@example.com /tmp/project/file.txt v1.2.3 192.168.0.1 "
+        "3.14 555-123-4567 $12.50."
+    )
+    chunks = chunk_text(text, cfg)
+    joined = " ".join(chunks)
+    for span in [
+        "[clear throat]",
+        "https://example.com/path",
+        "test.user@example.com",
+        "/tmp/project/file.txt",
+        "v1.2.3",
+        "192.168.0.1",
+        "3.14",
+        "555-123-4567",
+        "$12.50",
+    ]:
+        assert span in chunks or span in joined
+        assert any(span in chunk for chunk in chunks)
+
+
+def test_chunk_text_allows_oversized_protected_span(cfg):
+    cfg["chunk_size"] = 10
+    chunks = chunk_text("before https://example.com/very/long/path after", cfg)
+    assert "https://example.com/very/long/path" in chunks
+
+
 def test_ssml_output(cfg):
     cfg["output_mode"] = "ssml"
     assert format_output("A < B & C", cfg) == "<speak>A &lt; B &amp; C</speak>"
+
+
+def test_ssml_removes_tags_by_default(cfg):
+    cfg["output_mode"] = "ssml"
+    assert format_output("hello [sigh] there", cfg) == "<speak>hello there</speak>"
+
+
+def test_ssml_tag_policy_variants_and_unknown_tags(cfg):
+    cfg["output_mode"] = "ssml"
+    cfg["ssml_tag_policy"] = "speak"
+    assert format_output("hello [sigh]", cfg) == "<speak>hello sigh</speak>"
+
+    cfg["ssml_tag_policy"] = "preserve"
+    assert format_output("hello [unknown <tag>]", cfg) == "<speak>hello [unknown &lt;tag&gt;]</speak>"
+
+
+def test_ssml_break_marker_conversion(cfg):
+    cfg["output_mode"] = "ssml"
+    cfg["ssml_break_markers"] = {"[pause]": {"time": "750ms"}}
+    assert format_output("hello [pause] there", cfg) == '<speak>hello <break time="750ms"/> there</speak>'
+
+    cfg["output_mode"] = "plain"
+    assert format_output("hello [pause] there", cfg) == "hello [pause] there"

@@ -1,0 +1,7 @@
+include LICENSE README.md
+recursive-include data *.csv
+recursive-include models *.json
+recursive-include openspec *.md *.yaml
+prune .pytest_cache
+prune **/__pycache__
+global-exclude *.py[cod]

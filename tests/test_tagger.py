@@ -1,3 +1,7 @@
+import json
+import subprocess
+import sys
+
 from sayable.classifier import NaiveBayesTagger
 from sayable.config import load_config
 from sayable.normalizer import normalize_text
@@ -44,3 +48,62 @@ def test_rules_strategy_and_tag_limit():
     assert out.count("[clear throat]") == 1
     assert "[shush]" not in out
     assert "[groan]" not in out
+
+
+def test_neutral_command_text_is_not_tagged():
+    cfg = load_config(None)
+    cfg["tag_min_confidence"] = 0.55
+    for text in ["uv run pytest", "git status", "curl https://example.com"]:
+        out = run_pipeline(text, cfg)
+        assert "[" not in out
+
+
+def test_neutral_documentation_text_is_not_tagged():
+    cfg = load_config(None)
+    cfg["tag_min_confidence"] = 0.55
+    text = "Install dependencies and call normalize_text with a config object."
+    out = run_pipeline(text, cfg)
+    assert "[" not in out
+
+
+def test_disabled_tags_are_never_emitted():
+    cfg = load_config(None)
+    cfg["label_to_tag"] = {"sigh": "[sigh]", "none": ""}
+    cfg["disabled_tags"] = ["[sigh]"]
+    classifier = NaiveBayesTagger()
+    out = insert_tags("sorry about that.", classifier, cfg)
+    assert "[sigh]" not in out
+
+
+def test_model_loader_accepts_metadata_wrapper(tmp_path):
+    base = NaiveBayesTagger().model
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps({"metadata": {"schema_version": 1}, "model": base}), encoding="utf-8")
+    assert NaiveBayesTagger.from_json(path).predict("sorry about that")[0] == "sigh"
+
+
+def test_training_script_writes_metadata_and_metrics(tmp_path):
+    out = tmp_path / "model.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/train_tag_model.py",
+            "--data",
+            "data/tag_train.csv",
+            "--out",
+            str(out),
+            "--seed",
+            "7",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["metadata"]["schema_version"] == 1
+    assert payload["metadata"]["training_rows"] > 0
+    assert payload["metadata"]["label_counts"]["none"] > 0
+    assert payload["metadata"]["seed"] == 7
+    assert "accuracy" in payload["metrics"]
+    assert "none_false_positives" in payload["metrics"]
+    assert "label_counts" in result.stdout
