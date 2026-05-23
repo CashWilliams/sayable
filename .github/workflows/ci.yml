@@ -23,7 +23,14 @@ jobs:
         run: |
           npm install -g @fission-ai/openspec
           openspec validate --specs --strict
-          openspec validate harden-production-readiness --strict
+          changes=$(openspec list --json | python3 -c 'import json, sys; print(" ".join(change["name"] for change in json.load(sys.stdin).get("changes", [])))')
+          if [ -n "$changes" ]; then
+            for change in $changes; do
+              openspec validate "$change" --strict
+            done
+          else
+            echo "No active OpenSpec changes to validate."
+          fi
       - name: Build package
         run: uv build
       - name: Install and smoke test package
