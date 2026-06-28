@@ -164,7 +164,7 @@ def strip_emoji(text):
 
 
 def spell_letters(token):
-    return " ".join(ch.lower() for ch in token if ch.isalnum())
+    return " ".join(ch.upper() if ch.isalpha() else ch for ch in token if ch.isalnum())
 
 
 def split_camel(token):

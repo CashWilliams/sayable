@@ -22,8 +22,8 @@ def test_acronyms_and_caps(cfg):
 
 
 def test_ai_and_dotted_ai(cfg):
-    text = "AI and A.I. are related"
-    assert normalize_text(text, cfg) == "a i and a i are related"
+    text = "AI, A.I., and ai are related"
+    assert normalize_text(text, cfg) == "A I, A I, and A I are related"
 
 
 def test_openmontage_pronunciation_variants(cfg):
@@ -54,7 +54,7 @@ def test_email_and_url(cfg):
     text = "Email test.user+ai@example.com and visit https://example.com"
     assert (
         normalize_text(text, cfg)
-        == "Email test dot user plus a i at example dot com and visit example dot com"
+        == "Email test dot user plus A I at example dot com and visit example dot com"
     )
 
 
@@ -80,7 +80,7 @@ def test_regression_developer_text_fixture(cfg):
 def test_regression_ai_prose_fixture(cfg):
     text = "- AI updates (brief)\n- Keep [sigh] exactly\nOK?"
     out = normalize_text(text, cfg)
-    assert "a i updates, brief." in out
+    assert "A I updates, brief." in out
     assert "[sigh]" in out
     assert out.endswith("OK?")
 

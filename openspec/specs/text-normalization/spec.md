@@ -122,7 +122,7 @@ Sayable SHALL apply configured parenthetical handling, abbreviations, technical 
 
 #### Scenario: Acronym spelling is configurable
 - **WHEN** `auto_spell_acronyms=true`
-- **THEN** two- to six-letter all-caps tokens are lowercased, spelled if forced, or left unchanged if stoplisted
+- **THEN** two- to six-letter all-caps tokens are lowercased, spelled as uppercase letter tokens if forced, or left unchanged if stoplisted
 
 ### Requirement: Dates, years, and times
 Sayable SHALL convert supported date, year range, ordinal, and time patterns into spoken words.

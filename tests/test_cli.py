@@ -13,7 +13,7 @@ def test_cli_stdin_stdout_success(capsys, monkeypatch):
     monkeypatch.setattr("sys.stdin.read", lambda: "AI at 12:00 pm")
     assert main(["--no-tags"]) == 0
     captured = capsys.readouterr()
-    assert "a i at twelve o'clock p m" in captured.out
+    assert "A I at twelve o'clock p m" in captured.out
     assert captured.err == ""
 
 
