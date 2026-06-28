@@ -26,6 +26,14 @@ def test_ai_and_dotted_ai(cfg):
     assert normalize_text(text, cfg) == "a i and a i are related"
 
 
+def test_openmontage_pronunciation_variants(cfg):
+    text = "Use openmontage or Open Montage for this."
+    assert (
+        normalize_text(text, cfg)
+        == "Use open mahn tahzh or open mahn tahzh for this."
+    )
+
+
 def test_minutes_and_minimum(cfg):
     text = "This takes a few min. It is at the min. It takes 2-min."
     assert (

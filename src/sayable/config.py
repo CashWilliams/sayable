@@ -200,6 +200,8 @@ DEFAULT_CONFIG = {
         "JWT": "j w t",
         "REST": "r e s t",
         "gRPC": "g r p c",
+        "openmontage": "open mahn tahzh",
+        "Open Montage": "open mahn tahzh",
         "UTF-8": "u t f eight",
         "UTF8": "u t f eight",
         "ASCII": "a s c i i",
