@@ -26,6 +26,11 @@ def test_ai_and_dotted_ai(cfg):
     assert normalize_text(text, cfg) == "A I, A I, and A I are related"
 
 
+def test_lowercase_rest_in_natural_prose_is_unchanged(cfg):
+    text = "the rest of the story"
+    assert normalize_text(text, cfg) == "the rest of the story"
+
+
 def test_openmontage_pronunciation_variants(cfg):
     text = "Use openmontage or Open Montage for this."
     assert (
