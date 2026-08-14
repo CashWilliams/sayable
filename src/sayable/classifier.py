@@ -1,48 +1,7 @@
 import json
 import math
 import re
-
-DEFAULT_TRAINING = [
-    ("ugh", "groan"),
-    ("this is annoying", "groan"),
-    ("this is frustrating", "groan"),
-    ("this is bad", "groan"),
-    ("this is terrible", "groan"),
-    ("oh no", "gasp"),
-    ("wow", "gasp"),
-    ("gosh", "gasp"),
-    ("i did not expect this", "gasp"),
-    ("i can't believe this", "gasp"),
-    ("cool ai news", "gasp"),
-    ("what a surprise", "gasp"),
-    ("something interesting happened", "gasp"),
-    ("this is something interesting", "gasp"),
-    ("ahem", "clear_throat"),
-    ("clearing my throat", "clear_throat"),
-    ("shh", "shush"),
-    ("shush", "shush"),
-    ("sorry about that", "sigh"),
-    ("i guess", "sigh"),
-    ("sorry to say this", "sigh"),
-    ("sorry to say this but the command failed", "sigh"),
-    ("unfortunately that failed", "sigh"),
-    ("cough", "cough"),
-    ("coughing", "cough"),
-    ("sniff", "sniff"),
-    ("sniffing", "sniff"),
-    ("okay", "none"),
-    ("thanks", "none"),
-    ("let us continue", "none"),
-    ("this is some info", "none"),
-    ("this is an update", "none"),
-    ("this is a note", "none"),
-    ("uv run pytest", "none"),
-    ("git status", "none"),
-    ("curl https example com", "none"),
-    ("read the api documentation", "none"),
-    ("install dependencies and run tests", "none"),
-    ("the command failed with exit code one", "none"),
-]
+from importlib.resources import files
 
 TOKEN_RE = re.compile(r"[a-z]+(?:'[a-z]+)?|\d+|[:;]-?[)D(]")
 
@@ -104,17 +63,28 @@ def validate_model(model):
     return model
 
 
+def unwrap_model_payload(payload):
+    if isinstance(payload, dict) and "model" in payload and isinstance(payload["model"], dict):
+        return payload["model"]
+    return payload
+
+
+def load_bundled_model():
+    path = files("sayable") / "models" / "tag_model.json"
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return validate_model(unwrap_model_payload(payload))
+
+
 class NaiveBayesTagger:
     def __init__(self, model=None):
-        self.model = validate_model(model) if model is not None else train_nb(DEFAULT_TRAINING)
+        self.model = validate_model(model) if model is not None else load_bundled_model()
 
     @classmethod
     def from_json(cls, path):
         with open(path, "r", encoding="utf-8") as f:
             model = json.load(f)
-        if "model" in model and isinstance(model["model"], dict):
-            model = model["model"]
-        return cls(model=validate_model(model))
+        return cls(model=validate_model(unwrap_model_payload(model)))
 
     def predict(self, text):
         tokens = tokenize(text)

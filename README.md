@@ -99,7 +99,7 @@ Successful transformed text is written to stdout. Diagnostics are written to std
 ## Train your own tagger
 
 ```bash
-python scripts/train_tag_model.py --data data/tag_train.csv --out models/tag_model.json --seed 7
+python scripts/train_tag_model.py --data data/tag_train.csv --out src/sayable/models/tag_model.json --seed 7
 ```
 
 The training command writes model metadata including schema version, row count, label counts, smoothing value, source data hash, seed, timestamp, and validation metrics. Re-run the documented command against checked-in training data to regenerate the bundled model with equivalent inference behavior.

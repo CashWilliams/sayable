@@ -90,6 +90,12 @@ def test_disabled_tags_are_never_emitted():
     assert "[sigh]" not in out
 
 
+def test_default_tagger_uses_bundled_model():
+    tagger = NaiveBayesTagger()
+    assert "ssml" in tagger.model["vocab"]
+    assert "clear_throat" in tagger.model["labels"]
+
+
 def test_model_loader_accepts_metadata_wrapper(tmp_path):
     base = NaiveBayesTagger().model
     path = tmp_path / "model.json"
