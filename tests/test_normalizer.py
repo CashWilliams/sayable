@@ -196,6 +196,12 @@ def test_markdown_speak_link_includes_url(cfg):
     assert normalize_text("[docs](https://example.com)", cfg) == "docs, example dot com"
 
 
+def test_flag_emoji_are_stripped(cfg):
+    assert normalize_text("I love the US \U0001f1fa\U0001f1f8 today", cfg) == (
+        "I love the US today"
+    )
+
+
 def test_paragraph_breaks_survive_normalization(cfg):
     assert normalize_text("First paragraph.\n\nSecond paragraph.", cfg) == (
         "First paragraph.\n\nSecond paragraph."
