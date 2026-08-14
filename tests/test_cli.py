@@ -27,6 +27,23 @@ def test_cli_config_failure_stderr_only(tmp_path, capsys, monkeypatch):
     assert "config error:" in captured.err
 
 
+def test_cli_missing_config_file_is_bad_config(capsys):
+    assert main(["--config", "/definitely/missing.json"]) == EXIT_BAD_ARGS_OR_CONFIG
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "config error:" in captured.err
+
+
+def test_cli_malformed_json_config_is_bad_config(tmp_path, capsys, monkeypatch):
+    path = tmp_path / "bad.json"
+    path.write_text("{nope", encoding="utf-8")
+    monkeypatch.setattr("sys.stdin.read", lambda: "hello")
+    assert main(["--config", str(path)]) == EXIT_BAD_ARGS_OR_CONFIG
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "config error:" in captured.err
+
+
 def test_cli_missing_input_file(capsys):
     assert main(["--input", "/definitely/missing/input.txt"]) == EXIT_INPUT_READ
     captured = capsys.readouterr()

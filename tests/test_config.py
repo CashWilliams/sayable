@@ -46,3 +46,15 @@ def test_load_config_raises_catchable_error(tmp_path):
     path.write_text(json.dumps({"output_mode": "wav"}), encoding="utf-8")
     with pytest.raises(ConfigError):
         load_config(path)
+
+
+def test_load_config_missing_file_is_config_error():
+    with pytest.raises(ConfigError, match="could not read"):
+        load_config("/definitely/missing.json")
+
+
+def test_load_config_invalid_json_is_config_error(tmp_path):
+    path = tmp_path / "bad.json"
+    path.write_text("{nope", encoding="utf-8")
+    with pytest.raises(ConfigError, match="valid JSON"):
+        load_config(path)
