@@ -1,9 +1,6 @@
 import re
 
-
-def split_sentences(text):
-    parts = re.split(r"(?<=[.!?])\s+", text.strip())
-    return [p for p in parts if p]
+from .chunker import split_sentences
 
 
 def already_tagged(sentence, allowed_tags):
