@@ -135,6 +135,13 @@ def test_ymd_slash_dates(cfg):
     )
 
 
+def test_impossible_dates_are_left_unchanged(cfg):
+    out = normalize_text("On 2026-13-40 we leave.", cfg)
+    assert "2026-13-40" in out
+    assert "thirteenth" not in out.lower()
+    assert "fortieth" not in out.lower()
+
+
 def test_markdown_cleanup(cfg):
     text = "# Title\nSee [docs](https://example.com).\nRun `uv run pytest`.\n```py\nprint('x')\n```"
     assert (

@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from calendar import month_name
+from calendar import month_name, monthrange
 from urllib.parse import parse_qsl, unquote, urlparse
 
 
@@ -265,7 +265,19 @@ def month_to_words(month):
     return number_to_words(month)
 
 
+def _valid_calendar_date(year, month, day):
+    if not (1 <= month <= 12):
+        return False
+    try:
+        last_day = monthrange(int(year), month)[1]
+    except ValueError:
+        return False
+    return 1 <= day <= last_day
+
+
 def date_to_words(year, month, day, config):
+    if not _valid_calendar_date(year, month, day):
+        return None
     year_words = year_to_words(year, config.get("year_style", "auto"))
     return f"{month_to_words(month)} {ordinal_to_words(day)} {year_words}"
 
@@ -284,18 +296,24 @@ def _expand_two_digit_year(year):
     return year
 
 
-def replace_dates(text, config):
+def replace_dates(text, config, offset=0):
+    held = {}
+
+    def hold(original):
+        key = f"\ue000sayabledate{index_to_letters(offset + len(held))}\ue001"
+        held[key] = original
+        return key
+
+    def spoken_or_hold(match, spoken):
+        return spoken if spoken is not None else hold(match.group(0))
+
     def repl_iso(match):
-        year = int(match.group(1))
-        month = int(match.group(2))
-        day = int(match.group(3))
-        return date_to_words(year, month, day, config)
+        spoken = date_to_words(int(match.group(1)), int(match.group(2)), int(match.group(3)), config)
+        return spoken_or_hold(match, spoken)
 
     def repl_ymd_slash(match):
-        year = int(match.group(1))
-        month = int(match.group(2))
-        day = int(match.group(3))
-        return date_to_words(year, month, day, config)
+        spoken = date_to_words(int(match.group(1)), int(match.group(2)), int(match.group(3)), config)
+        return spoken_or_hold(match, spoken)
 
     def repl_slash(match):
         first = int(match.group(1))
@@ -308,7 +326,7 @@ def replace_dates(text, config):
             year, month, day = _expand_two_digit_year(first), second, third
         else:
             month, day, year = first, second, _expand_two_digit_year(third)
-        return date_to_words(year, month, day, config)
+        return spoken_or_hold(match, date_to_words(year, month, day, config))
 
     def repl_month(match):
         month_key = match.group(1).lower().rstrip(".")
@@ -316,13 +334,15 @@ def replace_dates(text, config):
         day = int(match.group(2))
         year = match.group(3)
         if year:
-            return date_to_words(int(year), month, day, config)
+            return spoken_or_hold(match, date_to_words(int(year), month, day, config))
+        if not _valid_calendar_date(2000, month, day):
+            return hold(match.group(0))
         return f"{month_to_words(month)} {ordinal_to_words(day)}"
 
     text = ISO_DATE_RE.sub(repl_iso, text)
     text = YMD_SLASH_DATE_RE.sub(repl_ymd_slash, text)
     text = SLASH_DATE_RE.sub(repl_slash, text)
-    return MONTH_DATE_RE.sub(repl_month, text)
+    return MONTH_DATE_RE.sub(repl_month, text), held
 
 
 def replace_year_ranges(text, config):
@@ -1063,7 +1083,8 @@ def normalize_text(text, config, before=None, after=None):
     text = replace_ampersands(text)
     text = replace_pluses(text)
     text = replace_phones(text, config)
-    text = replace_dates(text, config)
+    text, date_placeholders = replace_dates(text, config, len(placeholders))
+    placeholders.update(date_placeholders)
     text = replace_year_ranges(text, config)
     text = replace_ip_addresses(text, config)
     text = replace_currencies(text, config)
