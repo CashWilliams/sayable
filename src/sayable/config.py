@@ -121,7 +121,6 @@ DEFAULT_CONFIG = {
         "GUID",
         "ASCII",
         "UTF",
-        "REST",
         "RGB",
         "BGR",
     ],

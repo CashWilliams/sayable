@@ -38,6 +38,11 @@ def test_lowercase_rest_in_natural_prose_is_unchanged(cfg):
     assert normalize_text(text, cfg) == "the rest of the story"
 
 
+def test_all_caps_rest_in_natural_prose_is_spoken_as_the_word(cfg):
+    assert normalize_text("the REST of the story", cfg) == "the rest of the story"
+    assert normalize_text("Use REST APIs", cfg) == "Use rest APIs"
+
+
 def test_openmontage_pronunciation_variants(cfg):
     text = "Use openmontage or Open Montage for this."
     assert (
