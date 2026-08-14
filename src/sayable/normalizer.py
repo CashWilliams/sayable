@@ -19,7 +19,7 @@ HANDLE_RE = re.compile(r"(?<!\w)@([A-Za-z0-9_]{1,30})")
 HASHTAG_RE = re.compile(r"(?<!\w)#([A-Za-z0-9_]+)")
 WIN_PATH_RE = re.compile(r"\b[A-Za-z]:\\[^\s)]+")
 UNIX_PATH_RE = re.compile(r"(?<!\w)(?:~?/)(?:[^\s/]+/)*[^\s/]+")
-VERSION_RE = re.compile(r"\bv?(\d+(?:\.\d+)+)\b", re.IGNORECASE)
+VERSION_RE = re.compile(r"\b(?:v(\d+(?:\.\d+)+)|(\d+(?:\.\d+){2,}))\b", re.IGNORECASE)
 IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")
 HEX_RE = re.compile(r"\b0x[0-9A-Fa-f]+\b")
@@ -443,7 +443,7 @@ def replace_big_o(text):
 
 def replace_versions(text):
     def repl(match):
-        raw = match.group(1)
+        raw = match.group(1) or match.group(2)
         parts = raw.split(".")
         words = " point ".join(number_to_words(int(p)) for p in parts)
         return f"version {words}"

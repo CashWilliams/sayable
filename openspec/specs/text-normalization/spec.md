@@ -171,8 +171,12 @@ Sayable SHALL convert supported numbers, decimals, ordinals, currencies, percent
 - **THEN** normalization emits digit groups separated by commas
 
 #### Scenario: Version is spoken
-- **WHEN** input contains `v1.2.3`
+- **WHEN** input contains `v1.2.3` or a three-or-more-component version such as `1.2.3`
 - **THEN** normalization emits `version one point two point three`
+
+#### Scenario: Bare decimals are not versions
+- **WHEN** input contains a two-component decimal such as `3.14` or `3.5`
+- **THEN** normalization speaks it as a decimal and SHALL NOT prefix `version`
 
 #### Scenario: IP address is spoken by digits by default
 - **WHEN** input contains `192.168.0.1`

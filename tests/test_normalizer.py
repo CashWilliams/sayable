@@ -55,6 +55,18 @@ def test_units_versions_ip(cfg):
     )
 
 
+def test_bare_decimals_are_not_versions(cfg):
+    assert normalize_text("The value is 3.14 and also 3.5.", cfg) == (
+        "The value is three point one four and also three point five."
+    )
+
+
+def test_dotted_software_versions_still_speak_as_versions(cfg):
+    assert normalize_text("Released v1.2.3 and 1.2.3 today.", cfg) == (
+        "Released version one point two point three and version one point two point three today."
+    )
+
+
 def test_email_and_url(cfg):
     text = "Email test.user+ai@example.com and visit https://example.com"
     assert (
