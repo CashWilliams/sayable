@@ -1,3 +1,4 @@
+import csv
 import json
 import subprocess
 import sys
@@ -101,6 +102,32 @@ def test_model_loader_rejects_missing_inference_fields(tmp_path):
     path.write_text(json.dumps({"foo": 1}), encoding="utf-8")
     with pytest.raises(ValueError, match="labels"):
         NaiveBayesTagger.from_json(path)
+
+
+def test_saved_model_contains_every_training_label(tmp_path):
+    out = tmp_path / "model.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/train_tag_model.py",
+            "--data",
+            "data/tag_train.csv",
+            "--out",
+            str(out),
+            "--seed",
+            "7",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    csv_labels = set()
+    with open("data/tag_train.csv", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            csv_labels.add(row["label"].strip())
+    assert set(payload["model"]["labels"]) == csv_labels
+    assert "clear_throat" in payload["model"]["labels"]
 
 
 def test_training_script_writes_metadata_and_metrics(tmp_path):
