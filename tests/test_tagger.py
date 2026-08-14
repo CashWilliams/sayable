@@ -2,6 +2,7 @@ import csv
 import json
 import subprocess
 import sys
+from importlib.resources import files
 
 import pytest
 
@@ -108,6 +109,39 @@ def test_model_loader_rejects_missing_inference_fields(tmp_path):
     path.write_text(json.dumps({"foo": 1}), encoding="utf-8")
     with pytest.raises(ValueError, match="labels"):
         NaiveBayesTagger.from_json(path)
+
+
+def _inference_fields(payload):
+    model = payload["model"] if "model" in payload else payload
+    return {
+        "labels": model["labels"],
+        "log_priors": model["log_priors"],
+        "log_likelihoods": model["log_likelihoods"],
+        "vocab": model["vocab"],
+        "alpha": model["alpha"],
+    }
+
+
+def test_bundled_model_matches_checked_in_training_data(tmp_path):
+    out = tmp_path / "model.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/train_tag_model.py",
+            "--data",
+            "data/tag_train.csv",
+            "--out",
+            str(out),
+            "--seed",
+            "7",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    regenerated = json.loads(out.read_text(encoding="utf-8"))
+    bundled = json.loads((files("sayable") / "models" / "tag_model.json").read_text(encoding="utf-8"))
+    assert _inference_fields(regenerated) == _inference_fields(bundled)
 
 
 def test_saved_model_contains_every_training_label(tmp_path):
