@@ -15,6 +15,13 @@ def run_pipeline(text, cfg):
     return insert_tags(normalized, NaiveBayesTagger(), cfg)
 
 
+def test_tagger_preserves_paragraph_breaks():
+    cfg = load_config(None)
+    cfg["tagger_enabled"] = True
+    out = insert_tags("sorry about that.\n\nlet us continue.", NaiveBayesTagger(), cfg)
+    assert "\n\n" in out
+
+
 def test_tagger_inserts_sigh():
     cfg = load_config(None)
     text = "sorry about that."

@@ -81,6 +81,12 @@ def test_cli_incomplete_model_object_fails_at_load(tmp_path, capsys, monkeypatch
     assert "model load failed" in captured.err
 
 
+def test_cli_chunking_prefers_paragraphs(capsys, monkeypatch):
+    monkeypatch.setattr("sys.stdin.read", lambda: "First paragraph.\n\nSecond paragraph.")
+    assert main(["--no-tags", "--chunk-size", "80"]) == 0
+    assert capsys.readouterr().out == "First paragraph.\n\nSecond paragraph.\n"
+
+
 def test_cli_help(capsys):
     try:
         main(["--help"])

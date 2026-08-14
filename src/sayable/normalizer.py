@@ -840,35 +840,44 @@ def auto_spell_acronyms(text, config):
 
 
 def normalize_bullets(text):
-    lines = text.split("\n")
-    out = []
+    paragraphs = []
+    current = []
     bullets = []
 
-    def flush():
+    def flush_bullets():
+        items = []
         for item in bullets:
             item = item.strip()
             if not item:
                 continue
             if not re.search(r"[.!?]$", item):
                 item += "."
-            out.append(item)
+            items.append(item)
         bullets.clear()
+        if items:
+            current.append(" ".join(items))
 
-    for line in lines:
-        m = BULLET_RE.match(line)
-        if m:
-            bullets.append(m.group(1))
+    def flush_paragraph():
+        flush_bullets()
+        if current:
+            paragraphs.append(" ".join(current))
+            current.clear()
+
+    for line in text.split("\n"):
+        if not line.strip():
+            flush_paragraph()
+            continue
+        match = BULLET_RE.match(line)
+        if match:
+            if current and not bullets:
+                flush_paragraph()
+            bullets.append(match.group(1))
         else:
-            if bullets:
-                flush()
-            cleaned = line.strip()
-            if cleaned:
-                out.append(cleaned)
+            flush_bullets()
+            current.append(line.strip())
 
-    if bullets:
-        flush()
-
-    return " ".join(out)
+    flush_paragraph()
+    return "\n\n".join(paragraphs)
 
 
 def normalize_markdown(text, config):
@@ -923,6 +932,8 @@ def normalize_markdown(text, config):
             line = ", ".join(cell for cell in cells if cell)
         if line:
             lines.append(line)
+        else:
+            lines.append("")
     return "\n".join(lines)
 
 
@@ -944,10 +955,15 @@ def handle_parentheses(text, policy):
 
 
 def normalize_whitespace(text):
-    text = re.sub(r"[\t ]+", " ", text)
-    text = re.sub(r"\s+([.,!?])", r"\1", text)
-    text = re.sub(r"\s{2,}", " ", text)
-    return text.strip()
+    cleaned = []
+    for paragraph in re.split(r"\n\s*\n", text):
+        paragraph = re.sub(r"[\t ]+", " ", paragraph)
+        paragraph = re.sub(r" *\n *", " ", paragraph)
+        paragraph = re.sub(r"\s+([.,!?])", r"\1", paragraph)
+        paragraph = re.sub(r" {2,}", " ", paragraph).strip()
+        if paragraph:
+            cleaned.append(paragraph)
+    return "\n\n".join(cleaned)
 
 
 def convert_explicit_sfx(text, allowed_tags):

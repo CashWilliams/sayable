@@ -190,6 +190,12 @@ def test_markdown_speak_link_includes_url(cfg):
     assert normalize_text("[docs](https://example.com)", cfg) == "docs, example dot com"
 
 
+def test_paragraph_breaks_survive_normalization(cfg):
+    assert normalize_text("First paragraph.\n\nSecond paragraph.", cfg) == (
+        "First paragraph.\n\nSecond paragraph."
+    )
+
+
 def test_chunk_text(cfg):
     cfg["chunk_size"] = 18
     assert chunk_text("One sentence. Two sentence. Three sentence.", cfg) == [
