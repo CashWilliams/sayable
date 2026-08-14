@@ -891,7 +891,7 @@ def normalize_markdown(text, config):
 
 def replace_abbreviations(text, abbreviations):
     for k, v in abbreviations.items():
-        pattern = r"(?<!\\w)" + re.escape(k) + r"(?!\\w)"
+        pattern = r"(?<!\w)" + re.escape(k) + r"(?!\w)"
         text = re.sub(pattern, v, text, flags=re.IGNORECASE)
     return text
 

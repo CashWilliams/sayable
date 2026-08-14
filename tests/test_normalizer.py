@@ -67,6 +67,13 @@ def test_dotted_software_versions_still_speak_as_versions(cfg):
     )
 
 
+def test_abbreviations_do_not_match_inside_words(cfg):
+    cfg["abbreviations"] = {"ok": "okay", "e.g.": "for example"}
+    assert normalize_text("booking the room, e.g. now", cfg) == (
+        "booking the room, for example now"
+    )
+
+
 def test_email_and_url(cfg):
     text = "Email test.user+ai@example.com and visit https://example.com"
     assert (
