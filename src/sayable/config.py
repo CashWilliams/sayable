@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
     "paren_policy": "expand",
     "strip_emoji": True,
     "tagger_enabled": True,
-    "tag_min_confidence": 0.3,
+    "tag_min_confidence": 0.55,
     "tag_position": "prefix",
     "unknown_tag_policy": "preserve",
     "disabled_tags": ["[laugh]", "[chuckle]"],

@@ -61,7 +61,6 @@ def test_rules_strategy_and_tag_limit():
 
 def test_neutral_command_text_is_not_tagged():
     cfg = load_config(None)
-    cfg["tag_min_confidence"] = 0.55
     for text in ["uv run pytest", "git status", "curl https://example.com"]:
         out = run_pipeline(text, cfg)
         assert "[" not in out
@@ -69,10 +68,16 @@ def test_neutral_command_text_is_not_tagged():
 
 def test_neutral_documentation_text_is_not_tagged():
     cfg = load_config(None)
-    cfg["tag_min_confidence"] = 0.55
     text = "Install dependencies and call normalize_text with a config object."
     out = run_pipeline(text, cfg)
     assert "[" not in out
+
+
+def test_default_confidence_skips_weak_groan():
+    cfg = load_config(None)
+    assert cfg["tag_min_confidence"] == 0.55
+    out = insert_tags("This is interesting.", NaiveBayesTagger(), cfg)
+    assert "[groan]" not in out
 
 
 def test_disabled_tags_are_never_emitted():

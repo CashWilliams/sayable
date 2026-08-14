@@ -54,7 +54,7 @@ Optional JSON config file:
   "paren_policy": "expand",
   "strip_emoji": true,
   "tagger_enabled": true,
-  "tag_min_confidence": 0.3
+  "tag_min_confidence": 0.55
 }
 ```
 
