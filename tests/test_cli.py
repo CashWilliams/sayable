@@ -71,6 +71,16 @@ def test_cli_malformed_model(tmp_path, capsys, monkeypatch):
     assert "model load failed" in captured.err
 
 
+def test_cli_incomplete_model_object_fails_at_load(tmp_path, capsys, monkeypatch):
+    model = tmp_path / "empty-model.json"
+    model.write_text(json.dumps({"foo": 1}), encoding="utf-8")
+    monkeypatch.setattr("sys.stdin.read", lambda: "sorry about that.")
+    assert main(["--model", str(model)]) == EXIT_MODEL_LOAD
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "model load failed" in captured.err
+
+
 def test_cli_help(capsys):
     try:
         main(["--help"])

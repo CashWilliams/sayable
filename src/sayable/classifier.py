@@ -87,9 +87,26 @@ def train_nb(examples, alpha=1.0):
     }
 
 
+def validate_model(model):
+    if not isinstance(model, dict):
+        raise ValueError("tagger model must be a JSON object")
+    for field in ("labels", "log_priors", "log_likelihoods"):
+        if field not in model:
+            raise ValueError(f"tagger model is missing required field {field!r}")
+    labels = model["labels"]
+    if not isinstance(labels, list) or not labels or not all(isinstance(label, str) for label in labels):
+        raise ValueError("tagger model field 'labels' must be a non-empty list of strings")
+    if not isinstance(model["log_priors"], dict) or not isinstance(model["log_likelihoods"], dict):
+        raise ValueError("tagger model priors and likelihoods must be objects")
+    for label in labels:
+        if label not in model["log_priors"] or label not in model["log_likelihoods"]:
+            raise ValueError(f"tagger model is missing inference data for label {label!r}")
+    return model
+
+
 class NaiveBayesTagger:
     def __init__(self, model=None):
-        self.model = model or train_nb(DEFAULT_TRAINING)
+        self.model = validate_model(model) if model is not None else train_nb(DEFAULT_TRAINING)
 
     @classmethod
     def from_json(cls, path):
@@ -97,7 +114,7 @@ class NaiveBayesTagger:
             model = json.load(f)
         if "model" in model and isinstance(model["model"], dict):
             model = model["model"]
-        return cls(model=model)
+        return cls(model=validate_model(model))
 
     def predict(self, text):
         tokens = tokenize(text)

@@ -2,6 +2,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from sayable.classifier import NaiveBayesTagger
 from sayable.config import load_config
 from sayable.normalizer import normalize_text
@@ -80,6 +82,13 @@ def test_model_loader_accepts_metadata_wrapper(tmp_path):
     path = tmp_path / "model.json"
     path.write_text(json.dumps({"metadata": {"schema_version": 1}, "model": base}), encoding="utf-8")
     assert NaiveBayesTagger.from_json(path).predict("sorry about that")[0] == "sigh"
+
+
+def test_model_loader_rejects_missing_inference_fields(tmp_path):
+    path = tmp_path / "bad-model.json"
+    path.write_text(json.dumps({"foo": 1}), encoding="utf-8")
+    with pytest.raises(ValueError, match="labels"):
+        NaiveBayesTagger.from_json(path)
 
 
 def test_training_script_writes_metadata_and_metrics(tmp_path):
