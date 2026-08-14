@@ -1,8 +1,7 @@
 import re
 import unicodedata
-from calendar import month_name
+from calendar import month_name, monthrange
 from urllib.parse import parse_qsl, unquote, urlparse
-
 
 BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[\.)])\s+(.*)$")
 TIME_RE = re.compile(
@@ -19,7 +18,7 @@ HANDLE_RE = re.compile(r"(?<!\w)@([A-Za-z0-9_]{1,30})")
 HASHTAG_RE = re.compile(r"(?<!\w)#([A-Za-z0-9_]+)")
 WIN_PATH_RE = re.compile(r"\b[A-Za-z]:\\[^\s)]+")
 UNIX_PATH_RE = re.compile(r"(?<!\w)(?:~?/)(?:[^\s/]+/)*[^\s/]+")
-VERSION_RE = re.compile(r"\bv?(\d+(?:\.\d+)+)\b", re.IGNORECASE)
+VERSION_RE = re.compile(r"\b(?:v(\d+(?:\.\d+)+)|(\d+(?:\.\d+){2,}))\b", re.IGNORECASE)
 IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")
 HEX_RE = re.compile(r"\b0x[0-9A-Fa-f]+\b")
@@ -38,6 +37,7 @@ QUANT_MIN_RE = re.compile(
 MINIMUM_RE = re.compile(r"\bthe min\b", re.IGNORECASE)
 BIG_O_RE = re.compile(r"\bO\(([^)]+)\)", re.IGNORECASE)
 ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
+YMD_SLASH_DATE_RE = re.compile(r"\b(\d{4})/(\d{1,2})/(\d{1,2})\b")
 SLASH_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b")
 MONTH_DATE_RE = re.compile(
     r"\b("
@@ -91,6 +91,7 @@ MONTHS = {
 }
 
 EMOJI_RANGES = [
+    (0x1F1E6, 0x1F1FF),
     (0x1F300, 0x1F5FF),
     (0x1F600, 0x1F64F),
     (0x1F680, 0x1F6FF),
@@ -264,7 +265,19 @@ def month_to_words(month):
     return number_to_words(month)
 
 
+def _valid_calendar_date(year, month, day):
+    if not (1 <= month <= 12):
+        return False
+    try:
+        last_day = monthrange(int(year), month)[1]
+    except ValueError:
+        return False
+    return 1 <= day <= last_day
+
+
 def date_to_words(year, month, day, config):
+    if not _valid_calendar_date(year, month, day):
+        return None
     year_words = year_to_words(year, config.get("year_style", "auto"))
     return f"{month_to_words(month)} {ordinal_to_words(day)} {year_words}"
 
@@ -277,27 +290,43 @@ def replace_ordinals(text):
     return ORDINAL_RE.sub(repl, text)
 
 
-def replace_dates(text, config):
+def _expand_two_digit_year(year):
+    if year < 100:
+        return year + (2000 if year < 70 else 1900)
+    return year
+
+
+def replace_dates(text, config, offset=0):
+    held = {}
+
+    def hold(original):
+        key = make_placeholder(offset + len(held), "date")
+        held[key] = original
+        return key
+
+    def spoken_or_hold(match, spoken):
+        return spoken if spoken is not None else hold(match.group(0))
+
     def repl_iso(match):
-        year = int(match.group(1))
-        month = int(match.group(2))
-        day = int(match.group(3))
-        return date_to_words(year, month, day, config)
+        spoken = date_to_words(int(match.group(1)), int(match.group(2)), int(match.group(3)), config)
+        return spoken_or_hold(match, spoken)
+
+    def repl_ymd_slash(match):
+        spoken = date_to_words(int(match.group(1)), int(match.group(2)), int(match.group(3)), config)
+        return spoken_or_hold(match, spoken)
 
     def repl_slash(match):
         first = int(match.group(1))
         second = int(match.group(2))
-        year = int(match.group(3))
-        if year < 100:
-            year += 2000 if year < 70 else 1900
+        third = int(match.group(3))
         date_order = config.get("date_order", "mdy")
         if date_order == "dmy":
-            day, month = first, second
+            day, month, year = first, second, _expand_two_digit_year(third)
         elif date_order == "ymd":
-            year, month, day = first, second, year
+            year, month, day = _expand_two_digit_year(first), second, third
         else:
-            month, day = first, second
-        return date_to_words(year, month, day, config)
+            month, day, year = first, second, _expand_two_digit_year(third)
+        return spoken_or_hold(match, date_to_words(year, month, day, config))
 
     def repl_month(match):
         month_key = match.group(1).lower().rstrip(".")
@@ -305,12 +334,15 @@ def replace_dates(text, config):
         day = int(match.group(2))
         year = match.group(3)
         if year:
-            return date_to_words(int(year), month, day, config)
+            return spoken_or_hold(match, date_to_words(int(year), month, day, config))
+        if not _valid_calendar_date(2000, month, day):
+            return hold(match.group(0))
         return f"{month_to_words(month)} {ordinal_to_words(day)}"
 
     text = ISO_DATE_RE.sub(repl_iso, text)
+    text = YMD_SLASH_DATE_RE.sub(repl_ymd_slash, text)
     text = SLASH_DATE_RE.sub(repl_slash, text)
-    return MONTH_DATE_RE.sub(repl_month, text)
+    return MONTH_DATE_RE.sub(repl_month, text), held
 
 
 def replace_year_ranges(text, config):
@@ -443,7 +475,7 @@ def replace_big_o(text):
 
 def replace_versions(text):
     def repl(match):
-        raw = match.group(1)
+        raw = match.group(1) or match.group(2)
         parts = raw.split(".")
         words = " point ".join(number_to_words(int(p)) for p in parts)
         return f"version {words}"
@@ -544,8 +576,13 @@ def time_to_words(hour, minute, am_pm, config):
                 minute_words = number_to_words(minute)
             base = f"{hour_words} {minute_words}"
         suffix = ""
-        if am_pm and include_am_pm:
-            suffix = " a m" if am_pm.startswith("a") else " p m"
+        if include_am_pm:
+            if am_pm:
+                suffix = " a m" if am_pm.startswith("a") else " p m"
+            elif hour == 0:
+                suffix = " a m"
+            elif hour > 12:
+                suffix = " p m"
         return (base + suffix).strip()
 
     hour_words = number_to_words(hour)
@@ -803,35 +840,44 @@ def auto_spell_acronyms(text, config):
 
 
 def normalize_bullets(text):
-    lines = text.split("\n")
-    out = []
+    paragraphs = []
+    current = []
     bullets = []
 
-    def flush():
+    def flush_bullets():
+        items = []
         for item in bullets:
             item = item.strip()
             if not item:
                 continue
             if not re.search(r"[.!?]$", item):
                 item += "."
-            out.append(item)
+            items.append(item)
         bullets.clear()
+        if items:
+            current.append(" ".join(items))
 
-    for line in lines:
-        m = BULLET_RE.match(line)
-        if m:
-            bullets.append(m.group(1))
+    def flush_paragraph():
+        flush_bullets()
+        if current:
+            paragraphs.append(" ".join(current))
+            current.clear()
+
+    for line in text.split("\n"):
+        if not line.strip():
+            flush_paragraph()
+            continue
+        match = BULLET_RE.match(line)
+        if match:
+            if current and not bullets:
+                flush_paragraph()
+            bullets.append(match.group(1))
         else:
-            if bullets:
-                flush()
-            cleaned = line.strip()
-            if cleaned:
-                out.append(cleaned)
+            flush_bullets()
+            current.append(line.strip())
 
-    if bullets:
-        flush()
-
-    return " ".join(out)
+    flush_paragraph()
+    return "\n\n".join(paragraphs)
 
 
 def normalize_markdown(text, config):
@@ -886,12 +932,14 @@ def normalize_markdown(text, config):
             line = ", ".join(cell for cell in cells if cell)
         if line:
             lines.append(line)
+        else:
+            lines.append("")
     return "\n".join(lines)
 
 
 def replace_abbreviations(text, abbreviations):
     for k, v in abbreviations.items():
-        pattern = r"(?<!\\w)" + re.escape(k) + r"(?!\\w)"
+        pattern = r"(?<!\w)" + re.escape(k) + r"(?!\w)"
         text = re.sub(pattern, v, text, flags=re.IGNORECASE)
     return text
 
@@ -907,10 +955,15 @@ def handle_parentheses(text, policy):
 
 
 def normalize_whitespace(text):
-    text = re.sub(r"[\t ]+", " ", text)
-    text = re.sub(r"\s+([.,!?])", r"\1", text)
-    text = re.sub(r"\s{2,}", " ", text)
-    return text.strip()
+    cleaned = []
+    for paragraph in re.split(r"\n\s*\n", text):
+        paragraph = re.sub(r"[\t ]+", " ", paragraph)
+        paragraph = re.sub(r" *\n *", " ", paragraph)
+        paragraph = re.sub(r"\s+([.,!?])", r"\1", paragraph)
+        paragraph = re.sub(r" {2,}", " ", paragraph).strip()
+        if paragraph:
+            cleaned.append(paragraph)
+    return "\n\n".join(cleaned)
 
 
 def convert_explicit_sfx(text, allowed_tags):
@@ -924,6 +977,10 @@ def convert_explicit_sfx(text, allowed_tags):
     return SFX_RE.sub(repl, text)
 
 
+PLACEHOLDER_PREFIX = "\ue000sayable:"
+PLACEHOLDER_SUFFIX = "\ue001"
+
+
 def index_to_letters(index):
     letters = []
     while True:
@@ -932,6 +989,10 @@ def index_to_letters(index):
         if index < 0:
             break
     return "".join(reversed(letters))
+
+
+def make_placeholder(index, kind="tag"):
+    return f"{PLACEHOLDER_PREFIX}{kind}{index_to_letters(index)}{PLACEHOLDER_SUFFIX}"
 
 
 def protect_tags(text, allowed_tags, config):
@@ -943,7 +1004,7 @@ def protect_tags(text, allowed_tags, config):
         tag = match.group(0)
         tag_key = tag.lower()
         if tag_key in allowed or policy == "preserve":
-            key = f"sayabletag{index_to_letters(len(placeholders))}"
+            key = make_placeholder(len(placeholders), "tag")
             placeholders[key] = allowed.get(tag_key, tag)
             return key
         if policy == "escape":
@@ -955,8 +1016,8 @@ def protect_tags(text, allowed_tags, config):
 
 
 def restore_tags(text, placeholders):
-    for key, tag in placeholders.items():
-        text = text.replace(key, tag)
+    for key in sorted(placeholders, key=len, reverse=True):
+        text = text.replace(key, placeholders[key])
     return text
 
 
@@ -966,6 +1027,8 @@ def protect_configured_spans(text, config, offset=0):
         patterns.extend([URL_RE, EMAIL_RE])
     if config.get("path_policy") == "preserve":
         patterns.extend([WIN_PATH_RE, UNIX_PATH_RE])
+    if config.get("markdown_policy") == "preserve":
+        patterns.extend([FENCED_CODE_RE, MARKDOWN_LINK_RE, INLINE_CODE_RE])
     if not patterns:
         return text, {}
 
@@ -986,7 +1049,7 @@ def protect_configured_spans(text, config, offset=0):
     pos = 0
     for start, end in merged:
         out.append(text[pos:start])
-        key = f"sayablespan{index_to_letters(offset + len(placeholders))}"
+        key = make_placeholder(offset + len(placeholders), "span")
         placeholders[key] = text[start:end]
         out.append(key)
         pos = end
@@ -1025,11 +1088,12 @@ def normalize_text(text, config, before=None, after=None):
     text = convert_explicit_sfx(text, config.get("allowed_tags", []))
     text = apply_hooks(text, after, "explicit_sfx", config)
 
-    text = normalize_bullets(text)
+    if config.get("markdown_policy") != "preserve":
+        text = normalize_bullets(text)
     text = apply_hooks(text, after, "bullets", config)
 
+    text, span_placeholders = protect_configured_spans(text, config)
     text, placeholders = protect_tags(text, config.get("allowed_tags", []), config)
-    text, span_placeholders = protect_configured_spans(text, config, len(placeholders))
     placeholders.update(span_placeholders)
     text = apply_hooks(text, after, "tag_protection", config)
 
@@ -1051,7 +1115,8 @@ def normalize_text(text, config, before=None, after=None):
     text = replace_ampersands(text)
     text = replace_pluses(text)
     text = replace_phones(text, config)
-    text = replace_dates(text, config)
+    text, date_placeholders = replace_dates(text, config, len(placeholders))
+    placeholders.update(date_placeholders)
     text = replace_year_ranges(text, config)
     text = replace_ip_addresses(text, config)
     text = replace_currencies(text, config)

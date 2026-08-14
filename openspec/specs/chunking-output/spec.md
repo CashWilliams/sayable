@@ -95,6 +95,10 @@ Sayable SHALL prefer paragraph and sentence boundaries before token boundaries, 
 - **WHEN** text contains paragraph breaks and chunks can remain under target size
 - **THEN** chunking prefers paragraph boundaries before sentence or token boundaries
 
+#### Scenario: The CLI pipeline keeps paragraph breaks
+- **WHEN** input contains blank-line separated paragraphs and chunking is enabled
+- **THEN** normalization and tag insertion preserve those breaks so chunking can use them
+
 #### Scenario: Sentence boundary is preferred
 - **WHEN** a paragraph contains multiple sentences and chunks can remain under target size
 - **THEN** chunking prefers sentence boundaries before token boundaries

@@ -37,11 +37,23 @@ def file_hash(path):
 def split_examples(examples, validation_ratio, seed):
     if validation_ratio <= 0:
         return examples, []
-    shuffled = list(examples)
-    random.Random(seed).shuffle(shuffled)
-    validation_size = max(1, int(round(len(shuffled) * validation_ratio)))
-    validation_size = min(validation_size, len(shuffled) - 1)
-    return shuffled[validation_size:], shuffled[:validation_size]
+    grouped = defaultdict(list)
+    for example in examples:
+        grouped[example[1]].append(example)
+    rng = random.Random(seed)
+    train_examples = []
+    validation_examples = []
+    for label in sorted(grouped):
+        rows = list(grouped[label])
+        rng.shuffle(rows)
+        if len(rows) < 2:
+            train_examples.extend(rows)
+            continue
+        holdout = max(1, int(round(len(rows) * validation_ratio)))
+        holdout = min(holdout, len(rows) - 1)
+        validation_examples.extend(rows[:holdout])
+        train_examples.extend(rows[holdout:])
+    return train_examples, validation_examples
 
 
 def evaluate(model, examples):
@@ -97,9 +109,9 @@ def main():
 
     examples = load_examples(args.data)
     train_examples, validation_examples = split_examples(examples, args.validation_ratio, args.seed)
-    model = train_nb(train_examples, alpha=args.alpha)
+    metrics = evaluate(train_nb(train_examples, alpha=args.alpha), validation_examples)
+    model = train_nb(examples, alpha=args.alpha)
     label_counts = dict(sorted(Counter(label for _text, label in examples).items()))
-    metrics = evaluate(model, validation_examples)
     payload = {
         "metadata": {
             "schema_version": 1,

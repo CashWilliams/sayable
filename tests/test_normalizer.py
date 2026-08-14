@@ -1,7 +1,7 @@
 import pytest
 
-from sayable.config import load_config
 from sayable.chunker import chunk_text
+from sayable.config import load_config
 from sayable.normalizer import normalize_text
 from sayable.output import format_output
 
@@ -14,6 +14,13 @@ def cfg():
 def test_time_and_parentheses(cfg):
     text = "We meet at 12:00 pm (be on time)"
     assert normalize_text(text, cfg) == "We meet at twelve o'clock p m, be on time"
+
+
+def test_24h_clock_values_infer_pm_in_12h_style(cfg):
+    assert normalize_text("Meet at 14:00 in the lobby.", cfg) == (
+        "Meet at two o'clock p m in the lobby."
+    )
+    assert normalize_text("Meet at 00:00.", cfg) == "Meet at twelve o'clock a m."
 
 
 def test_acronyms_and_caps(cfg):
@@ -29,6 +36,11 @@ def test_ai_and_dotted_ai(cfg):
 def test_lowercase_rest_in_natural_prose_is_unchanged(cfg):
     text = "the rest of the story"
     assert normalize_text(text, cfg) == "the rest of the story"
+
+
+def test_all_caps_rest_in_natural_prose_is_spoken_as_the_word(cfg):
+    assert normalize_text("the REST of the story", cfg) == "the rest of the story"
+    assert normalize_text("Use REST APIs", cfg) == "Use rest APIs"
 
 
 def test_openmontage_pronunciation_variants(cfg):
@@ -55,11 +67,36 @@ def test_units_versions_ip(cfg):
     )
 
 
+def test_bare_decimals_are_not_versions(cfg):
+    assert normalize_text("The value is 3.14 and also 3.5.", cfg) == (
+        "The value is three point one four and also three point five."
+    )
+
+
+def test_dotted_software_versions_still_speak_as_versions(cfg):
+    assert normalize_text("Released v1.2.3 and 1.2.3 today.", cfg) == (
+        "Released version one point two point three and version one point two point three today."
+    )
+
+
+def test_abbreviations_do_not_match_inside_words(cfg):
+    cfg["abbreviations"] = {"ok": "okay", "e.g.": "for example"}
+    assert normalize_text("booking the room, e.g. now", cfg) == (
+        "booking the room, for example now"
+    )
+
+
 def test_email_and_url(cfg):
     text = "Email test.user+ai@example.com and visit https://example.com"
     assert (
         normalize_text(text, cfg)
         == "Email test dot user plus A I at example dot com and visit example dot com"
+    )
+
+
+def test_tag_placeholders_do_not_collide_with_source_text(cfg):
+    assert normalize_text("keep sayabletaga and [sigh] please", cfg) == (
+        "keep sayabletaga and [sigh] please"
     )
 
 
@@ -106,6 +143,23 @@ def test_slash_date_and_year_range(cfg):
     )
 
 
+def test_ymd_slash_dates(cfg):
+    cfg["date_order"] = "ymd"
+    assert normalize_text("ship on 2026/05/23.", cfg) == (
+        "ship on May twenty third twenty twenty six."
+    )
+    assert normalize_text("ship on 26/05/23.", cfg) == (
+        "ship on May twenty third twenty twenty six."
+    )
+
+
+def test_impossible_dates_are_left_unchanged(cfg):
+    out = normalize_text("On 2026-13-40 we leave.", cfg)
+    assert "2026-13-40" in out
+    assert "thirteenth" not in out.lower()
+    assert "fortieth" not in out.lower()
+
+
 def test_markdown_cleanup(cfg):
     text = "# Title\nSee [docs](https://example.com).\nRun `uv run pytest`.\n```py\nprint('x')\n```"
     assert (
@@ -136,9 +190,27 @@ def test_markdown_table_cleanup_and_preserve_mode(cfg):
     assert normalize_text("`uv run pytest`", cfg) == "`uv run pytest`"
 
 
+def test_markdown_preserve_keeps_source_layout(cfg):
+    cfg["markdown_policy"] = "preserve"
+    src = "# Title\n\nSee [docs](https://example.com).\n\n```py\nprint(1)\n```"
+    assert normalize_text(src, cfg) == src
+
+
 def test_markdown_speak_link_includes_url(cfg):
     cfg["markdown_policy"] = "speak"
     assert normalize_text("[docs](https://example.com)", cfg) == "docs, example dot com"
+
+
+def test_flag_emoji_are_stripped(cfg):
+    assert normalize_text("I love the US \U0001f1fa\U0001f1f8 today", cfg) == (
+        "I love the US today"
+    )
+
+
+def test_paragraph_breaks_survive_normalization(cfg):
+    assert normalize_text("First paragraph.\n\nSecond paragraph.", cfg) == (
+        "First paragraph.\n\nSecond paragraph."
+    )
 
 
 def test_chunk_text(cfg):

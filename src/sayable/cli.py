@@ -2,11 +2,8 @@ import argparse
 import sys
 
 from .classifier import NaiveBayesTagger
-from .chunker import chunk_text
 from .config import ConfigError, load_config, validate_config
-from .normalizer import normalize_text
-from .output import format_output
-from .tagger import insert_tags
+from .pipeline import transform
 
 EXIT_BAD_ARGS_OR_CONFIG = 1
 EXIT_INPUT_READ = 2
@@ -89,11 +86,7 @@ def run(args):
         raise RuntimeError(f"model load failed for {args.model!r}: {exc}") from exc
 
     text = read_input(args.input)
-    text = normalize_text(text, cfg)
-    text = insert_tags(text, classifier, cfg)
-    chunks = chunk_text(text, cfg)
-    text = cfg.get("chunk_separator", "\n\n").join(chunks)
-    text = format_output(text, cfg)
+    text = transform(text, config=cfg, model=classifier)
     write_output(args.output, text)
 
 

@@ -1,6 +1,6 @@
 include LICENSE README.md
 recursive-include data *.csv
-recursive-include models *.json
+recursive-include src/sayable/models *.json
 recursive-include openspec *.md *.yaml
 prune .pytest_cache
 prune **/__pycache__

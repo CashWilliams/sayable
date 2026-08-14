@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
     "paren_policy": "expand",
     "strip_emoji": True,
     "tagger_enabled": True,
-    "tag_min_confidence": 0.3,
+    "tag_min_confidence": 0.55,
     "tag_position": "prefix",
     "unknown_tag_policy": "preserve",
     "disabled_tags": ["[laugh]", "[chuckle]"],
@@ -121,7 +121,6 @@ DEFAULT_CONFIG = {
         "GUID",
         "ASCII",
         "UTF",
-        "REST",
         "RGB",
         "BGR",
     ],
@@ -391,8 +390,13 @@ def validate_config(config):
 def load_config(path):
     if not path:
         return validate_config(deepcopy(DEFAULT_CONFIG))
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except OSError as exc:
+        raise ConfigError(f"could not read config file {path!r}: {exc.strerror or exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ConfigError(f"config file {path!r} is not valid JSON: {exc.msg}") from exc
     if not isinstance(data, dict):
         raise ConfigError("Config file must contain a JSON object")
     cfg = deepcopy(DEFAULT_CONFIG)

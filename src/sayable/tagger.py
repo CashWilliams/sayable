@@ -1,9 +1,6 @@
 import re
 
-
-def split_sentences(text):
-    parts = re.split(r"(?<=[.!?])\s+", text.strip())
-    return [p for p in parts if p]
+from .chunker import split_sentences
 
 
 def already_tagged(sentence, allowed_tags):
@@ -25,36 +22,38 @@ def insert_tags(text, classifier, config):
     strategy = config.get("tagger_strategy", "nb")
     max_tags = config.get("tag_max_per_chunk", 3)
 
-    sentences = split_sentences(text)
-    out = []
     inserted = 0
+    tagged_paragraphs = []
+    for paragraph in re.split(r"\n\s*\n", text):
+        out = []
+        for sentence in split_sentences(paragraph):
+            if already_tagged(sentence, allowed_tags):
+                out.append(sentence)
+                continue
 
-    for sentence in sentences:
-        if already_tagged(sentence, allowed_tags):
-            out.append(sentence)
-            continue
+            label, conf = "", 0.0
+            lowered = sentence.lower().strip()
+            if strategy in {"rules", "rules_nb"}:
+                if re.search(r"\bahem\b|clear(?:ing)? my throat", lowered):
+                    label, conf = "clear_throat", 1.0
+                elif re.search(r"\bshh+\b|\bshush\b", lowered):
+                    label, conf = "shush", 1.0
+                elif re.search(r"\bugh+\b", lowered):
+                    label, conf = "groan", 1.0
 
-        label, conf = "", 0.0
-        lowered = sentence.lower().strip()
-        if strategy in {"rules", "rules_nb"}:
-            if re.search(r"\bahem\b|clear(?:ing)? my throat", lowered):
-                label, conf = "clear_throat", 1.0
-            elif re.search(r"\bshh+\b|\bshush\b", lowered):
-                label, conf = "shush", 1.0
-            elif re.search(r"\bugh+\b", lowered):
-                label, conf = "groan", 1.0
+            if not label and strategy in {"nb", "rules_nb"}:
+                label, conf = classifier.predict(sentence)
 
-        if not label and strategy in {"nb", "rules_nb"}:
-            label, conf = classifier.predict(sentence)
-
-        tag = label_to_tag.get(label, "")
-        if tag and tag not in disabled_tags and conf >= min_conf and inserted < max_tags:
-            inserted += 1
-            if position == "suffix":
-                out.append(f"{sentence} {tag}")
+            tag = label_to_tag.get(label, "")
+            if tag and tag not in disabled_tags and conf >= min_conf and inserted < max_tags:
+                inserted += 1
+                if position == "suffix":
+                    out.append(f"{sentence} {tag}")
+                else:
+                    out.append(f"{tag} {sentence}")
             else:
-                out.append(f"{tag} {sentence}")
-        else:
-            out.append(sentence)
+                out.append(sentence)
+        if out:
+            tagged_paragraphs.append(" ".join(out))
 
-    return " ".join(out)
+    return "\n\n".join(tagged_paragraphs)

@@ -50,7 +50,11 @@ The CLI SHALL load default configuration, optionally overlay a JSON config file,
 
 #### Scenario: Default classifier is used
 - **WHEN** `--model` is omitted
-- **THEN** the CLI uses a default `NaiveBayesTagger`
+- **THEN** the CLI uses a default `NaiveBayesTagger` loaded from the bundled model
+
+#### Scenario: Missing or invalid config is a config error
+- **WHEN** `--config` points at a missing file or a file that is not valid JSON
+- **THEN** the CLI exits with code `1` and prints a config diagnostic to stderr
 
 #### Scenario: Model file is loaded
 - **WHEN** `--model model.json` is provided

@@ -17,13 +17,17 @@ Sayable SHALL provide a multinomial Naive Bayes trainer with additive smoothing 
 - **WHEN** `train_nb(examples)` is called with labeled text examples
 - **THEN** the model contains `labels`, `log_priors`, `log_likelihoods`, `vocab`, and `alpha`
 
-#### Scenario: Default classifier trains from bundled examples
+#### Scenario: Default classifier loads the bundled model
 - **WHEN** `NaiveBayesTagger()` is constructed without a model
-- **THEN** it trains from bundled examples covering supported labels and `none`
+- **THEN** it loads the packaged JSON model covering supported labels and `none`
 
 #### Scenario: Classifier can load JSON model
 - **WHEN** `NaiveBayesTagger.from_json(path)` is called
 - **THEN** it loads the model JSON from disk and uses it for prediction
+
+#### Scenario: Incomplete model JSON is rejected
+- **WHEN** `NaiveBayesTagger.from_json(path)` is called with JSON that is missing `labels`, `log_priors`, or `log_likelihoods`
+- **THEN** loading fails before prediction
 
 ### Requirement: Prediction
 The classifier SHALL return the highest-scoring label and a softmax-derived pseudo-confidence.
@@ -89,7 +93,7 @@ Sayable SHALL support `tagger_strategy` values that use rules, Naive Bayes, or b
 Sayable SHALL provide a script that trains a tag model from CSV and writes JSON output.
 
 #### Scenario: CSV training data is accepted
-- **WHEN** `scripts/train_tag_model.py --data data/tag_train.csv --out models/tag_model.json` is run with CSV columns `text,label`
+- **WHEN** `scripts/train_tag_model.py --data data/tag_train.csv --out src/sayable/models/tag_model.json` is run with CSV columns `text,label`
 - **THEN** non-empty rows are trained into a JSON model file
 
 #### Scenario: Empty training data fails

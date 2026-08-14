@@ -1,6 +1,5 @@
 import re
 
-
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 PROTECTED_PATTERNS = [
     re.compile(r"\[[^\]\n]{1,80}\]"),

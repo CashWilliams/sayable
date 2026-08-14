@@ -27,6 +27,23 @@ def test_cli_config_failure_stderr_only(tmp_path, capsys, monkeypatch):
     assert "config error:" in captured.err
 
 
+def test_cli_missing_config_file_is_bad_config(capsys):
+    assert main(["--config", "/definitely/missing.json"]) == EXIT_BAD_ARGS_OR_CONFIG
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "config error:" in captured.err
+
+
+def test_cli_malformed_json_config_is_bad_config(tmp_path, capsys, monkeypatch):
+    path = tmp_path / "bad.json"
+    path.write_text("{nope", encoding="utf-8")
+    monkeypatch.setattr("sys.stdin.read", lambda: "hello")
+    assert main(["--config", str(path)]) == EXIT_BAD_ARGS_OR_CONFIG
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "config error:" in captured.err
+
+
 def test_cli_missing_input_file(capsys):
     assert main(["--input", "/definitely/missing/input.txt"]) == EXIT_INPUT_READ
     captured = capsys.readouterr()
@@ -52,6 +69,22 @@ def test_cli_malformed_model(tmp_path, capsys, monkeypatch):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "model load failed" in captured.err
+
+
+def test_cli_incomplete_model_object_fails_at_load(tmp_path, capsys, monkeypatch):
+    model = tmp_path / "empty-model.json"
+    model.write_text(json.dumps({"foo": 1}), encoding="utf-8")
+    monkeypatch.setattr("sys.stdin.read", lambda: "sorry about that.")
+    assert main(["--model", str(model)]) == EXIT_MODEL_LOAD
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "model load failed" in captured.err
+
+
+def test_cli_chunking_prefers_paragraphs(capsys, monkeypatch):
+    monkeypatch.setattr("sys.stdin.read", lambda: "First paragraph.\n\nSecond paragraph.")
+    assert main(["--no-tags", "--chunk-size", "80"]) == 0
+    assert capsys.readouterr().out == "First paragraph.\n\nSecond paragraph.\n"
 
 
 def test_cli_help(capsys):
