@@ -125,6 +125,16 @@ def test_slash_date_and_year_range(cfg):
     )
 
 
+def test_ymd_slash_dates(cfg):
+    cfg["date_order"] = "ymd"
+    assert normalize_text("ship on 2026/05/23.", cfg) == (
+        "ship on May twenty third twenty twenty six."
+    )
+    assert normalize_text("ship on 26/05/23.", cfg) == (
+        "ship on May twenty third twenty twenty six."
+    )
+
+
 def test_markdown_cleanup(cfg):
     text = "# Title\nSee [docs](https://example.com).\nRun `uv run pytest`.\n```py\nprint('x')\n```"
     assert (

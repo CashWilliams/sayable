@@ -135,6 +135,10 @@ Sayable SHALL convert supported date, year range, ordinal, and time patterns int
 - **WHEN** input contains `05/23/2026`
 - **THEN** `date_order` controls whether the numeric fields are interpreted as `mdy`, `dmy`, or `ymd`
 
+#### Scenario: YMD slash dates use year-first order
+- **WHEN** `date_order` is `ymd` and input contains `2026/05/23` or `26/05/23`
+- **THEN** normalization emits `May twenty third twenty twenty six`
+
 #### Scenario: Month date is spoken
 - **WHEN** input contains `May 23, 2026`
 - **THEN** normalization emits a spoken month, ordinal day, and year

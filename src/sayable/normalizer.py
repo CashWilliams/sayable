@@ -38,6 +38,7 @@ QUANT_MIN_RE = re.compile(
 MINIMUM_RE = re.compile(r"\bthe min\b", re.IGNORECASE)
 BIG_O_RE = re.compile(r"\bO\(([^)]+)\)", re.IGNORECASE)
 ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
+YMD_SLASH_DATE_RE = re.compile(r"\b(\d{4})/(\d{1,2})/(\d{1,2})\b")
 SLASH_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b")
 MONTH_DATE_RE = re.compile(
     r"\b("
@@ -277,8 +278,20 @@ def replace_ordinals(text):
     return ORDINAL_RE.sub(repl, text)
 
 
+def _expand_two_digit_year(year):
+    if year < 100:
+        return year + (2000 if year < 70 else 1900)
+    return year
+
+
 def replace_dates(text, config):
     def repl_iso(match):
+        year = int(match.group(1))
+        month = int(match.group(2))
+        day = int(match.group(3))
+        return date_to_words(year, month, day, config)
+
+    def repl_ymd_slash(match):
         year = int(match.group(1))
         month = int(match.group(2))
         day = int(match.group(3))
@@ -287,16 +300,14 @@ def replace_dates(text, config):
     def repl_slash(match):
         first = int(match.group(1))
         second = int(match.group(2))
-        year = int(match.group(3))
-        if year < 100:
-            year += 2000 if year < 70 else 1900
+        third = int(match.group(3))
         date_order = config.get("date_order", "mdy")
         if date_order == "dmy":
-            day, month = first, second
+            day, month, year = first, second, _expand_two_digit_year(third)
         elif date_order == "ymd":
-            year, month, day = first, second, year
+            year, month, day = _expand_two_digit_year(first), second, third
         else:
-            month, day = first, second
+            month, day, year = first, second, _expand_two_digit_year(third)
         return date_to_words(year, month, day, config)
 
     def repl_month(match):
@@ -309,6 +320,7 @@ def replace_dates(text, config):
         return f"{month_to_words(month)} {ordinal_to_words(day)}"
 
     text = ISO_DATE_RE.sub(repl_iso, text)
+    text = YMD_SLASH_DATE_RE.sub(repl_ymd_slash, text)
     text = SLASH_DATE_RE.sub(repl_slash, text)
     return MONTH_DATE_RE.sub(repl_month, text)
 
