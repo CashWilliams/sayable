@@ -300,7 +300,7 @@ def replace_dates(text, config, offset=0):
     held = {}
 
     def hold(original):
-        key = f"\ue000sayabledate{index_to_letters(offset + len(held))}\ue001"
+        key = make_placeholder(offset + len(held), "date")
         held[key] = original
         return key
 
@@ -956,6 +956,10 @@ def convert_explicit_sfx(text, allowed_tags):
     return SFX_RE.sub(repl, text)
 
 
+PLACEHOLDER_PREFIX = "\ue000sayable:"
+PLACEHOLDER_SUFFIX = "\ue001"
+
+
 def index_to_letters(index):
     letters = []
     while True:
@@ -964,6 +968,10 @@ def index_to_letters(index):
         if index < 0:
             break
     return "".join(reversed(letters))
+
+
+def make_placeholder(index, kind="tag"):
+    return f"{PLACEHOLDER_PREFIX}{kind}{index_to_letters(index)}{PLACEHOLDER_SUFFIX}"
 
 
 def protect_tags(text, allowed_tags, config):
@@ -975,7 +983,7 @@ def protect_tags(text, allowed_tags, config):
         tag = match.group(0)
         tag_key = tag.lower()
         if tag_key in allowed or policy == "preserve":
-            key = f"sayabletag{index_to_letters(len(placeholders))}"
+            key = make_placeholder(len(placeholders), "tag")
             placeholders[key] = allowed.get(tag_key, tag)
             return key
         if policy == "escape":
@@ -987,8 +995,8 @@ def protect_tags(text, allowed_tags, config):
 
 
 def restore_tags(text, placeholders):
-    for key, tag in placeholders.items():
-        text = text.replace(key, tag)
+    for key in sorted(placeholders, key=len, reverse=True):
+        text = text.replace(key, placeholders[key])
     return text
 
 
@@ -1018,7 +1026,7 @@ def protect_configured_spans(text, config, offset=0):
     pos = 0
     for start, end in merged:
         out.append(text[pos:start])
-        key = f"sayablespan{index_to_letters(offset + len(placeholders))}"
+        key = make_placeholder(offset + len(placeholders), "span")
         placeholders[key] = text[start:end]
         out.append(key)
         pos = end

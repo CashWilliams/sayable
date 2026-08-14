@@ -82,6 +82,12 @@ def test_email_and_url(cfg):
     )
 
 
+def test_tag_placeholders_do_not_collide_with_source_text(cfg):
+    assert normalize_text("keep sayabletaga and [sigh] please", cfg) == (
+        "keep sayabletaga and [sigh] please"
+    )
+
+
 def test_unknown_tags_are_preserved_by_default(cfg):
     assert normalize_text("hello [laugh] there [sigh]", cfg) == "hello [laugh] there [sigh]"
 
