@@ -185,6 +185,12 @@ def test_markdown_table_cleanup_and_preserve_mode(cfg):
     assert normalize_text("`uv run pytest`", cfg) == "`uv run pytest`"
 
 
+def test_markdown_preserve_keeps_source_layout(cfg):
+    cfg["markdown_policy"] = "preserve"
+    src = "# Title\n\nSee [docs](https://example.com).\n\n```py\nprint(1)\n```"
+    assert normalize_text(src, cfg) == src
+
+
 def test_markdown_speak_link_includes_url(cfg):
     cfg["markdown_policy"] = "speak"
     assert normalize_text("[docs](https://example.com)", cfg) == "docs, example dot com"

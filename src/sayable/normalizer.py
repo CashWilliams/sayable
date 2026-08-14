@@ -1027,6 +1027,8 @@ def protect_configured_spans(text, config, offset=0):
         patterns.extend([URL_RE, EMAIL_RE])
     if config.get("path_policy") == "preserve":
         patterns.extend([WIN_PATH_RE, UNIX_PATH_RE])
+    if config.get("markdown_policy") == "preserve":
+        patterns.extend([FENCED_CODE_RE, MARKDOWN_LINK_RE, INLINE_CODE_RE])
     if not patterns:
         return text, {}
 
@@ -1086,11 +1088,12 @@ def normalize_text(text, config, before=None, after=None):
     text = convert_explicit_sfx(text, config.get("allowed_tags", []))
     text = apply_hooks(text, after, "explicit_sfx", config)
 
-    text = normalize_bullets(text)
+    if config.get("markdown_policy") != "preserve":
+        text = normalize_bullets(text)
     text = apply_hooks(text, after, "bullets", config)
 
+    text, span_placeholders = protect_configured_spans(text, config)
     text, placeholders = protect_tags(text, config.get("allowed_tags", []), config)
-    text, span_placeholders = protect_configured_spans(text, config, len(placeholders))
     placeholders.update(span_placeholders)
     text = apply_hooks(text, after, "tag_protection", config)
 
