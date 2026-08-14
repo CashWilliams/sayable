@@ -98,3 +98,14 @@ Sayable SHALL expose a stable package-specific exception type for configuration 
 #### Scenario: API callers can catch config errors
 - **WHEN** invalid config is loaded or validated through the Python API
 - **THEN** callers can catch `sayable.config.ConfigError`
+
+### Requirement: Library transform entry point
+Sayable SHALL expose `sayable.transform` as the public pipeline used by the CLI.
+
+#### Scenario: Transform runs the full pipeline
+- **WHEN** `transform(text, config=cfg)` is called
+- **THEN** it normalizes, optionally tags, chunks, joins chunks, and formats output
+
+#### Scenario: Package exports
+- **WHEN** `import sayable` is used
+- **THEN** `transform`, `normalize_text`, `load_config`, `ConfigError`, and `__version__` are available
