@@ -1,7 +1,7 @@
 import pytest
 
-from sayable.config import load_config
 from sayable.chunker import chunk_text
+from sayable.config import load_config
 from sayable.normalizer import normalize_text
 from sayable.output import format_output
 

@@ -1,7 +1,6 @@
 import re
 from html import escape
 
-
 TAG_RE = re.compile(r"\[[^\]\n]{1,80}\]")
 
 

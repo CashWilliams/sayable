@@ -20,7 +20,7 @@ Issues = "https://github.com/CashWilliams/sayable/issues"
 sayable = "sayable.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest", "build"]
+dev = ["pytest", "build", "ruff"]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -36,3 +36,11 @@ sayable = ["models/tag_model.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py39"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

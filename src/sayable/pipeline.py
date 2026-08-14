@@ -1,5 +1,5 @@
-from .classifier import NaiveBayesTagger
 from .chunker import chunk_text
+from .classifier import NaiveBayesTagger
 from .config import load_config
 from .normalizer import normalize_text
 from .output import format_output
