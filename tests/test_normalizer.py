@@ -16,6 +16,13 @@ def test_time_and_parentheses(cfg):
     assert normalize_text(text, cfg) == "We meet at twelve o'clock p m, be on time"
 
 
+def test_24h_clock_values_infer_pm_in_12h_style(cfg):
+    assert normalize_text("Meet at 14:00 in the lobby.", cfg) == (
+        "Meet at two o'clock p m in the lobby."
+    )
+    assert normalize_text("Meet at 00:00.", cfg) == "Meet at twelve o'clock a m."
+
+
 def test_acronyms_and_caps(cfg):
     text = "GPU MUCH FAST"
     assert normalize_text(text, cfg) == "g p u much fast"

@@ -576,8 +576,13 @@ def time_to_words(hour, minute, am_pm, config):
                 minute_words = number_to_words(minute)
             base = f"{hour_words} {minute_words}"
         suffix = ""
-        if am_pm and include_am_pm:
-            suffix = " a m" if am_pm.startswith("a") else " p m"
+        if include_am_pm:
+            if am_pm:
+                suffix = " a m" if am_pm.startswith("a") else " p m"
+            elif hour == 0:
+                suffix = " a m"
+            elif hour > 12:
+                suffix = " p m"
         return (base + suffix).strip()
 
     hour_words = number_to_words(hour)
